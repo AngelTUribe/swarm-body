@@ -15,7 +15,7 @@ const HAND_CONNECTIONS = [
 const getThickness = (jointIndex) => {
   const tips = [4, 8, 12, 16, 20];
   const upperJoints = [3, 7, 11, 15, 19];
-  if (tips.includes(jointIndex)) return 0.05; 
+  if (tips.includes(jointIndex)) return 0.01; 
   if (upperJoints.includes(jointIndex)) return 0.01; 
   return 0.20; 
 };
