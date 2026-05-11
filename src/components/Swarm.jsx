@@ -13,11 +13,21 @@ const HAND_CONNECTIONS = [
 ];
 
 const getThickness = (jointIndex) => {
+  // MediaPipe Hand Map:
   const tips = [4, 8, 12, 16, 20];
   const upperJoints = [3, 7, 11, 15, 19];
-  if (tips.includes(jointIndex)) return 0.01; 
-  if (upperJoints.includes(jointIndex)) return 0.01; 
-  return 0.20; 
+  const midJoints = [2, 6, 10, 14, 18];
+  const baseJoints = [1, 5, 9, 13, 17]; // <-- These are the base knuckles!
+
+  if (tips.includes(jointIndex)) return 0.02;        // Sharp fingertips
+  if (upperJoints.includes(jointIndex)) return 0.04; // Just below the tip
+  if (midJoints.includes(jointIndex)) return 0.06;   // Middle of the finger
+  
+  // FIX: Give the base of the fingers their own thickness
+  if (baseJoints.includes(jointIndex)) return 0.08;  
+
+  // Default: Only the Wrist (0) and deep palm connections will be this thick now
+  return 0.15; 
 };
 
 const Swarm = ({ handsPositionRef, count = 15000 }) => {
