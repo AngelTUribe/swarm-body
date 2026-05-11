@@ -22,13 +22,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         return;
       }
 
-      // 1. Get the first hand on screen
       const hand = handsPositionRef.current.landmarks[0];
       const thumb = hand[4];
       const index = hand[8];
 
-      // 2. Map ML coordinates (0 to 1) to Screen Pixels
-      // (Remember we invert X because the camera is mirrored!)
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
       
@@ -37,9 +34,9 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const indexX = (1 - index.x) * screenW;
       const indexY = index.y * screenH;
 
-      // 3. The Cursor: Midpoint between thumb and index
-      const cursorX = (thumbX + indexX) / 2;
-      const cursorY = (thumbY + indexY) / 2;
+      // --- NEW LOGIC: LOCK CURSOR TO INDEX FINGER ---
+      const cursorX = indexX; 
+      const cursorY = indexY; 
 
       // Move the visual cursor
       if (cursorRef.current) {
@@ -47,14 +44,12 @@ const PortfolioUI = ({ handsPositionRef }) => {
         cursorRef.current.style.transform = `translate(${cursorX}px, ${cursorY}px)`;
       }
 
-      // 4. The Pinch: Distance between thumb and index
+      // The Pinch: Distance between thumb and index
       const pinchDist = Math.hypot(thumbX - indexX, thumbY - indexY);
-      const isPinching = pinchDist < 40; // If fingers are closer than 40px, it's a pinch!
+      const isPinching = pinchDist < 40;
 
-      // Update cursor color based on pinch
       if (cursorRef.current) cursorRef.current.style.backgroundColor = isPinching ? '#00ffcc' : 'white';
 
-      // 5. Hitbox Detection & Drag Logic
       const buttonEl = buttonRef.current;
       const dropZoneEl = dropZoneRef.current;
 
@@ -62,43 +57,36 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const btnRect = buttonEl.getBoundingClientRect();
         const dropRect = dropZoneEl.getBoundingClientRect();
 
-        // Check if cursor is hovering over the button
         const isHoveringBtn = 
           cursorX > btnRect.left && cursorX < btnRect.right &&
           cursorY > btnRect.top && cursorY < btnRect.bottom;
 
         if (isPinching && isHoveringBtn && !state.current.isDragging) {
-          // Grab the button!
           state.current.isDragging = true;
         }
 
         if (state.current.isDragging) {
           if (isPinching) {
-            // Dragging: Move button to cursor
+            // Dragging: Move button to cursor (which is now the index finger)
             state.current.buttonCurrentPos.x = cursorX - btnRect.width / 2;
             state.current.buttonCurrentPos.y = cursorY - btnRect.height / 2;
           } else {
             // Dropped!
             state.current.isDragging = false;
 
-            // Did we drop it in the zone?
             const isHoveringDropZone = 
               cursorX > dropRect.left && cursorX < dropRect.right &&
               cursorY > dropRect.top && cursorY < dropRect.bottom;
 
             if (isHoveringDropZone) {
-              // SUCCESS! TRIGGER ACTION HERE
               alert("Project Launched! (You can replace this with window.open)");
-              // Reset button position
               state.current.buttonCurrentPos = { ...state.current.buttonOriginalPos };
             } else {
-              // Missed the zone, snap back to origin
               state.current.buttonCurrentPos = { ...state.current.buttonOriginalPos };
             }
           }
         }
 
-        // Apply the button position to the screen
         buttonEl.style.transform = `translate(${state.current.buttonCurrentPos.x}px, ${state.current.buttonCurrentPos.y}px)`;
       }
 
