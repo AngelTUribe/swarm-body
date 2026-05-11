@@ -13,37 +13,37 @@ const HAND_CONNECTIONS = [
 ];
 
 const getThickness = (jointIndex) => {
-  // MediaPipe Hand Map:
   const tips = [4, 8, 12, 16, 20];
   const upperJoints = [3, 7, 11, 15, 19];
   const midJoints = [2, 6, 10, 14, 18];
-  const baseJoints = [1, 5, 9, 13, 17]; // <-- These are the base knuckles!
+  const baseJoints = [1, 5, 9, 13, 17]; 
 
-  if (tips.includes(jointIndex)) return 0.03;        // Sharp fingertips
-  if (upperJoints.includes(jointIndex)) return 0.06; // Just below the tip
-  if (midJoints.includes(jointIndex)) return 0.08;   // Middle of the finger
-  
-  // FIX: Give the base of the fingers their own thickness
-  if (baseJoints.includes(jointIndex)) return 0.12;  
-
-  // Default: Only the Wrist (0) and deep palm connections will be this thick now
-  return 0.25; 
+  if (tips.includes(jointIndex)) return 0.02;        
+  if (upperJoints.includes(jointIndex)) return 0.04; 
+  if (midJoints.includes(jointIndex)) return 0.06;   
+  if (baseJoints.includes(jointIndex)) return 0.08;  
+  return 0.15; 
 };
 
-const Swarm = ({ handsPositionRef, count = 15000 }) => {
+// FIX 1: Lowered default count to 6000 to instantly fix the lag
+const Swarm = ({ handsPositionRef, count = 6000 }) => {
   const pointsRef = useRef();
 
-  const { positions, assignments, tValues, offsets, handAssignments } = useMemo(() => {
+  const { positions, assignments, tValues, offsets, handAssignments, speeds } = useMemo(() => {
     const positions = new Float32Array(count * 3);
     const assignments = new Int32Array(count); 
     const tValues = new Float32Array(count);   
     const offsets = new Float32Array(count * 3); 
     const handAssignments = new Int32Array(count);
+    const speeds = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       handAssignments[i] = Math.random() > 0.5 ? 0 : 1;
       assignments[i] = Math.floor(Math.random() * HAND_CONNECTIONS.length);
       tValues[i] = Math.random(); 
+      
+      // Give each particle a slightly different smoothing speed for an organic feel
+      speeds[i] = 0.15 + Math.random() * 0.1; 
 
       const u = Math.random();
       const v = Math.random();
@@ -54,7 +54,7 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
       offsets[i * 3 + 1] = Math.sin(phi) * Math.sin(theta);
       offsets[i * 3 + 2] = Math.cos(phi);
     }
-    return { positions, assignments, tValues, offsets, handAssignments };
+    return { positions, assignments, tValues, offsets, handAssignments, speeds };
   }, [count]);
 
   useFrame(() => {
@@ -65,12 +65,13 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
     for (let i = 0; i < count; i++) {
       const handIndex = handAssignments[i];
       const i3 = i * 3;
+      const speed = speeds[i];
 
-      // FIX 1: Safely hide unused particles behind the camera instead of 9999
+      // If hand is off-screen, smoothly float the particles behind the camera
       if (!allHands[handIndex]) {
-        positions[i3] = 0;
-        positions[i3 + 1] = 0;
-        positions[i3 + 2] = 10; 
+        positions[i3] += (0 - positions[i3]) * 0.05;
+        positions[i3 + 1] += (0 - positions[i3 + 1]) * 0.05;
+        positions[i3 + 2] += (10 - positions[i3 + 2]) * 0.05; 
         continue;
       }
 
@@ -85,11 +86,11 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
 
       const ax = ((1 - jointA.x) - 0.5) * 10;
       const ay = -(jointA.y - 0.5) * 10;
-      const az = -(jointA.z || 0) * 5; // FIX 2: Added safety fallback for Z
+      const az = -(jointA.z || 0) * 5; 
 
       const bx = ((1 - jointB.x) - 0.5) * 10;
       const by = -(jointB.y - 0.5) * 10;
-      const bz = -(jointB.z || 0) * 5; // FIX 2: Added safety fallback for Z
+      const bz = -(jointB.z || 0) * 5; 
 
       const t = tValues[i];
       const centerX = ax + (bx - ax) * t;
@@ -100,9 +101,16 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
       const thicknessB = getThickness(endIdx);
       const currentThickness = thicknessA + (thicknessB - thicknessA) * t;
 
-      positions[i3] = centerX + (offsets[i3] * currentThickness);
-      positions[i3 + 1] = centerY + (offsets[i3 + 1] * currentThickness);
-      positions[i3 + 2] = centerZ + (offsets[i3 + 2] * currentThickness);
+      // Calculate where the particle WANTS to be
+      const targetX = centerX + (offsets[i3] * currentThickness);
+      const targetY = centerY + (offsets[i3 + 1] * currentThickness);
+      const targetZ = centerZ + (offsets[i3 + 2] * currentThickness);
+
+      // FIX 2: THE SHOCK ABSORBER (Lerping)
+      // Instead of teleporting, smoothly move a fraction of the distance
+      positions[i3] += (targetX - positions[i3]) * speed;
+      positions[i3 + 1] += (targetY - positions[i3 + 1]) * speed;
+      positions[i3 + 2] += (targetZ - positions[i3 + 2]) * speed;
     }
 
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
@@ -119,7 +127,7 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.06}      
+        size={0.07}      
         color="#00ffff"  
         transparent
         opacity={0.8}    
