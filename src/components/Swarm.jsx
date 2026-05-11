@@ -19,15 +19,15 @@ const getThickness = (jointIndex) => {
   const midJoints = [2, 6, 10, 14, 18];
   const baseJoints = [1, 5, 9, 13, 17]; // <-- These are the base knuckles!
 
-  if (tips.includes(jointIndex)) return 0.02;        // Sharp fingertips
-  if (upperJoints.includes(jointIndex)) return 0.04; // Just below the tip
-  if (midJoints.includes(jointIndex)) return 0.06;   // Middle of the finger
+  if (tips.includes(jointIndex)) return 0.03;        // Sharp fingertips
+  if (upperJoints.includes(jointIndex)) return 0.06; // Just below the tip
+  if (midJoints.includes(jointIndex)) return 0.08;   // Middle of the finger
   
   // FIX: Give the base of the fingers their own thickness
-  if (baseJoints.includes(jointIndex)) return 0.08;  
+  if (baseJoints.includes(jointIndex)) return 0.12;  
 
   // Default: Only the Wrist (0) and deep palm connections will be this thick now
-  return 0.15; 
+  return 0.25; 
 };
 
 const Swarm = ({ handsPositionRef, count = 15000 }) => {
