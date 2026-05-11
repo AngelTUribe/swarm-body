@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { usePoseDetection } from '../hooks/usePoseDetection'; 
+import { useHandDetection } from '../hooks/useHandDetection';
 
-const CameraView = ({ nosePositionRef }) => {
+const CameraView = ({ handsPositionRef }) => {
   const videoRef = useRef(null);
 
-  usePoseDetection(videoRef, nosePositionRef); 
+  useHandDetection(videoRef, handsPositionRef); 
 
   useEffect(() => {
     async function setupCamera() {
