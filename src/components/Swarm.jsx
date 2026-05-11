@@ -18,11 +18,11 @@ const getThickness = (jointIndex) => {
   const midJoints = [2, 6, 10, 14, 18];
   const baseJoints = [1, 5, 9, 13, 17]; 
 
-  if (tips.includes(jointIndex)) return 0.02;        
-  if (upperJoints.includes(jointIndex)) return 0.04; 
-  if (midJoints.includes(jointIndex)) return 0.06;   
-  if (baseJoints.includes(jointIndex)) return 0.08;  
-  return 0.15; 
+  if (tips.includes(jointIndex)) return 0.03;        
+  if (upperJoints.includes(jointIndex)) return 0.06; 
+  if (midJoints.includes(jointIndex)) return 0.08;   
+  if (baseJoints.includes(jointIndex)) return 0.12;  
+  return 0.25; 
 };
 
 // FIX 1: Lowered default count to 6000 to instantly fix the lag
