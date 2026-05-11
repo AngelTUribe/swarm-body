@@ -15,9 +15,9 @@ const HAND_CONNECTIONS = [
 const getThickness = (jointIndex) => {
   const tips = [4, 8, 12, 16, 20];
   const upperJoints = [3, 7, 11, 15, 19];
-  if (tips.includes(jointIndex)) return 0.04; 
-  if (upperJoints.includes(jointIndex)) return 0.06; 
-  return 0.25; 
+  if (tips.includes(jointIndex)) return 0.05; 
+  if (upperJoints.includes(jointIndex)) return 0.03; 
+  return 0.15; 
 };
 
 const Swarm = ({ handsPositionRef, count = 15000 }) => {
