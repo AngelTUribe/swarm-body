@@ -41,7 +41,7 @@ const Swarm = ({ nosePositionRef, count = 5000 }) => {
 
       // Give the body some volume (random noise around the bone)
       // Change the 0.4 to make the silhouette thicker or thinner
-      const thickness = 0.4; 
+      const thickness = 0.01; 
       offsets[i * 3] = (Math.random() - 0.5) * thickness;
       offsets[i * 3 + 1] = (Math.random() - 0.5) * thickness;
       offsets[i * 3 + 2] = (Math.random() - 0.5) * thickness;
