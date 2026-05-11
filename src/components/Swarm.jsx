@@ -2,79 +2,154 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const Swarm = ({ handsPositionRef, count = 2000 }) => {
-  const pointsRef = useRef();
+// 1. The Exact Anatomical Blueprint of the Hand
+const HAND_CONNECTIONS = [
+  // Thumb
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  // Index Finger
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  // Middle Finger
+  [9, 10], [10, 11], [11, 12],
+  // Ring Finger
+  [13, 14], [14, 15], [15, 16],
+  // Pinky Finger
+  [0, 17], [17, 18], [18, 19], [19, 20],
+  // Palm Webbing (Connecting the base knuckles together)
+  [5, 9], [9, 13], [13, 17]
+];
 
-  const { positions, assignments, speeds } = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const assignments = new Int32Array(count);
-    const speeds = new Float32Array(count);
+const Swarm = ({ handsPositionRef }) => {
+  const linesRef = useRef();
+  const jointsRef = useRef();
 
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 10;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-      
-      // We have up to 42 joints (2 hands * 21 joints)
-      assignments[i] = Math.floor(Math.random() * 42); 
-      speeds[i] = 0.15 + Math.random() * 0.2; // Fast, snappy speeds
-    }
-    return { positions, assignments, speeds };
-  }, [count]);
+  // 2. Setup the arrays to hold our 3D data
+  const { maxHands, totalJoints, totalBones } = useMemo(() => {
+    const maxHands = 2; // Track up to 2 hands
+    const jointsPerHand = 21;
+    const bonesPerHand = HAND_CONNECTIONS.length;
+    
+    return {
+      maxHands,
+      totalJoints: maxHands * jointsPerHand,
+      totalBones: maxHands * bonesPerHand,
+    };
+  }, []);
 
+  const { jointPositions, bonePositions } = useMemo(() => {
+    // Array for the glowing joint dots
+    const jointPositions = new Float32Array(totalJoints * 3);
+    // Array for the laser lines connecting them (each bone needs a Start and End point)
+    const bonePositions = new Float32Array(totalBones * 6); 
+    return { jointPositions, bonePositions };
+  }, [totalJoints, totalBones]);
+
+  // 3. The Real-Time Tracking Loop
   useFrame(() => {
-    if (!pointsRef.current || !handsPositionRef.current?.landmarks) return;
-
+    if (!handsPositionRef.current?.landmarks) return;
+    
     const allHands = handsPositionRef.current.landmarks;
-    if (allHands.length === 0) return; // If no hands are on screen, do nothing
+    
+    // Hide everything if no hands are detected
+    if (allHands.length === 0) {
+      if (jointsRef.current) jointsRef.current.visible = false;
+      if (linesRef.current) linesRef.current.visible = false;
+      return;
+    }
 
-    // Combine all detected hands into one flat list of active joints
-    const activeLandmarks = [];
-    allHands.forEach(hand => {
-      hand.forEach(joint => activeLandmarks.push(joint));
+    if (jointsRef.current) jointsRef.current.visible = true;
+    if (linesRef.current) linesRef.current.visible = true;
+
+    let jointIndex = 0;
+    let boneArrayOffset = 0;
+
+    // Loop through every hand the camera sees
+    allHands.forEach((hand) => {
+      // Create an array to temporarily hold the 3D coordinates of this specific hand
+      const currentHand3D = [];
+
+      // A. Update the Joints (Knuckles & Fingertips)
+      hand.forEach((landmark) => {
+        const targetX = ((1 - landmark.x) - 0.5) * 10;
+        const targetY = -(landmark.y - 0.5) * 10;
+        const targetZ = -landmark.z * 5;
+
+        // Save for the lines to use
+        currentHand3D.push({ x: targetX, y: targetY, z: targetZ });
+
+        // Update the glowing dots
+        jointPositions[jointIndex * 3] = targetX;
+        jointPositions[jointIndex * 3 + 1] = targetY;
+        jointPositions[jointIndex * 3 + 2] = targetZ;
+        jointIndex++;
+      });
+
+      // B. Update the Bones (The glowing lines)
+      HAND_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+        const startJoint = currentHand3D[startIdx];
+        const endJoint = currentHand3D[endIdx];
+
+        if (startJoint && endJoint) {
+          // Point A (Start of bone)
+          bonePositions[boneArrayOffset] = startJoint.x;
+          bonePositions[boneArrayOffset + 1] = startJoint.y;
+          bonePositions[boneArrayOffset + 2] = startJoint.z;
+          
+          // Point B (End of bone)
+          bonePositions[boneArrayOffset + 3] = endJoint.x;
+          bonePositions[boneArrayOffset + 4] = endJoint.y;
+          bonePositions[boneArrayOffset + 5] = endJoint.z;
+          
+          boneArrayOffset += 6;
+        }
+      });
     });
 
-    const positions = pointsRef.current.geometry.attributes.position.array;
-
-    for (let i = 0; i < count; i++) {
-      // Safely assign particles only to joints that are currently visible
-      const targetIndex = assignments[i] % activeLandmarks.length;
-      const targetLandmark = activeLandmarks[targetIndex];
-
-      if (!targetLandmark) continue;
-
-      const targetX = ((1 - targetLandmark.x) - 0.5) * 10;
-      const targetY = -(targetLandmark.y - 0.5) * 10;
-      const targetZ = -targetLandmark.z * 5;
-
-      const i3 = i * 3;
-      positions[i3] += (targetX - positions[i3]) * speeds[i];
-      positions[i3 + 1] += (targetY - positions[i3 + 1]) * speeds[i];
-      positions[i3 + 2] += (targetZ - positions[i3 + 2]) * speeds[i];
-    }
-
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
+    // Tell the graphics card to paint the new positions!
+    if (jointsRef.current) jointsRef.current.geometry.attributes.position.needsUpdate = true;
+    if (linesRef.current) linesRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
   return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
+    <group>
+      {/* The Laser Lines (Bones) */}
+      <lineSegments ref={linesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={bonePositions.length / 3}
+            array={bonePositions}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        {/* Additive blending creates the "Hologram/Neon" effect */}
+        <lineBasicMaterial 
+          color="#00ffff" 
+          transparent 
+          opacity={0.8} 
+          blending={THREE.AdditiveBlending} 
         />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.06}
-        color="#00ffff"
-        transparent
-        opacity={0.8}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </points>
+      </lineSegments>
+
+      {/* The Glowing Joints (Knuckles) */}
+      <points ref={jointsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={jointPositions.length / 3}
+            array={jointPositions}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial 
+          size={0.15} 
+          color="#ffffff" 
+          transparent 
+          opacity={0.9} 
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </points>
+    </group>
   );
 };
 
