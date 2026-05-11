@@ -109,10 +109,10 @@ const Swarm = ({ handsPositionRef, count = 15000 }) => {
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.06}      {/* FIX 4: Made dots larger */}
+        size={0.06}      
         color="#00ffff"  
         transparent
-        opacity={0.8}    {/* FIX 5: Made dots brighter */}
+        opacity={0.8}    
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
