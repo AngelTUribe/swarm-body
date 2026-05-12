@@ -16,6 +16,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const [flash, setFlash] = useState(false); // Controls the cinematic flash
 
   const state = useRef({
     draggedId: null,
@@ -23,7 +24,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     wasPinching: false, 
     lastHandX: null, 
     isDraggingZipper: false,
-    zipperX: window.innerWidth * 0.1, // Zipper starts at 10% of screen width
+    zipperX: window.innerWidth * 0.35, // Start much closer to the center (35%)
     projects: {} 
   });
 
@@ -42,8 +43,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       state.current.projects[p.id] = { origX: x, origY: y, currX: x, currY: y };
     });
     
-    // Set initial zipper position
-    state.current.zipperX = window.innerWidth * 0.1;
+    state.current.zipperX = window.innerWidth * 0.35;
     setMounted(true);
   }, []);
 
@@ -96,13 +96,15 @@ const PortfolioUI = ({ handsPositionRef }) => {
       if (phase === 'boot') {
         const zipperEl = zipperPullRef.current;
         const maskPath = document.getElementById('ar-mask-path'); 
+        
+        // The new, condensed track area (35% to 65% of screen width)
+        const startX = screenW * 0.35;
+        const endX = screenW * 0.65;
 
-        // 1. Check if they grabbed the zipper
         if (zipperEl) {
           const rect = zipperEl.getBoundingClientRect();
-          // generous hit box so it's easy to grab
-          const isHoveringZipper = activePinchX > rect.left - 40 && activePinchX < rect.right + 40 &&
-                                   activePinchY > rect.top - 40 && activePinchY < rect.bottom + 40;
+          const isHoveringZipper = activePinchX > rect.left - 50 && activePinchX < rect.right + 50 &&
+                                   activePinchY > rect.top - 50 && activePinchY < rect.bottom + 50;
 
           if (isPinching && isHoveringZipper && !state.current.wasPinching) {
             state.current.isDraggingZipper = true;
@@ -113,20 +115,18 @@ const PortfolioUI = ({ handsPositionRef }) => {
           state.current.isDraggingZipper = false;
         }
 
-        // 2. Move the zipper
         if (state.current.isDraggingZipper) {
-          // Constrain dragging horizontally
-          state.current.zipperX = Math.max(screenW * 0.1, Math.min(activePinchX, screenW * 0.95));
+          // Constrain dragging to the shorter track
+          state.current.zipperX = Math.max(startX, Math.min(activePinchX, screenW * 0.7)); // Let them pull slightly past 65%
         }
 
-        // 3. Draw the "Aperture Hole" in the SVG background
+        // Calculate aperture hole based on the new condensed track
+        const pullProgress = Math.max(0, (state.current.zipperX - startX) / (endX - startX));
+        
         if (maskPath) {
           const zx = state.current.zipperX;
-          // Calculate how wide the hole opens vertically based on how far we pulled it
-          const pullProgress = (zx - (screenW * 0.1)) / (screenW * 0.8);
-          const gap = pullProgress * (screenH * 0.6); // Opens up to 60% of screen height
+          const gap = pullProgress * (screenH * 0.6); 
           
-          // SVG Math: Outer full-screen box + Inner quadratic curve hole
           const d = `
             M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z 
             M 0 ${screenH/2 - gap} 
@@ -136,16 +136,24 @@ const PortfolioUI = ({ handsPositionRef }) => {
           maskPath.setAttribute('d', d);
         }
 
-        // Update Zipper handle CSS
         if (zipperEl) {
           zipperEl.style.transform = `translate(${state.current.zipperX}px, -50%)`;
+          // VISUAL FLAIR: Add an intense glowing core right behind the zipper that scales up
+          zipperEl.style.boxShadow = state.current.isDraggingZipper 
+            ? `0 0 ${50 + (pullProgress * 150)}px ${10 + (pullProgress * 50)}px rgba(0, 255, 204, ${0.3 + pullProgress * 0.5})` 
+            : 'none';
         }
 
-        // 4. Win Condition! They unzipped it all the way.
-        if (state.current.zipperX > screenW * 0.85) {
+        // Win Condition: Pulled past 65%
+        if (state.current.zipperX > endX) {
           setPhase('transition');
-          if (maskPath) maskPath.style.opacity = '0'; // Fade out the remaining black screen
-          setTimeout(() => setPhase('main'), 800);
+          setFlash(true); // Trigger the cinematic flash bang
+          if (maskPath) maskPath.style.opacity = '0'; 
+          
+          setTimeout(() => {
+            setPhase('main');
+            setFlash(false);
+          }, 800);
         }
 
         state.current.wasPinching = isPinching;
@@ -154,7 +162,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       }
 
       // ==========================================
-      // PHASE 2 & 3: MAIN OS LOGIC (Runs exactly as before)
+      // PHASE 2 & 3: MAIN OS LOGIC
       // ==========================================
       if (state.current.isExpanded) {
         if (currentHandX !== null && state.current.lastHandX !== null) {
@@ -265,40 +273,71 @@ const PortfolioUI = ({ handsPositionRef }) => {
         transition: 'opacity 0.5s ease-out'
       }}>
         
-        {/* Intro Text */}
-        <div style={{ position: 'absolute', top: '20%', width: '100%', textAlign: 'center' }}>
-          <h1 style={{ color: '#fff', fontFamily: 'monospace', fontSize: '2rem', letterSpacing: '8px' }}>
-            SPATIAL.OS LOADED
-          </h1>
-          <p style={{ color: '#00ffcc', fontFamily: 'sans-serif', fontSize: '1.2rem', opacity: 0.8, marginTop: '10px' }}>
-            Pinch the handle and pull right to enter your environment.
+        {/* NEW: Sleek Instruction Box */}
+        <div style={{ 
+          position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', 
+          width: '500px', padding: '25px', textAlign: 'center',
+          backgroundColor: 'rgba(5, 10, 15, 0.6)', backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(0, 255, 204, 0.3)', borderRadius: '16px',
+          boxShadow: '0 15px 35px rgba(0,0,0,0.5)'
+        }}>
+          <h2 style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1.5rem', letterSpacing: '4px', margin: '0 0 15px 0' }}>
+            SPATIAL ENVIRONMENT
+          </h2>
+          <p style={{ color: '#00ffcc', fontFamily: 'sans-serif', fontSize: '1.1rem', lineHeight: '1.5', margin: 0, opacity: 0.9 }}>
+            This experience tracks your physical hands. <br/><br/>
+            Hold your hand up to the camera. Bring your index finger and thumb together to <strong>pinch</strong> the zipper below, then drag it to the right to open.
           </p>
         </div>
 
-        {/* The horizontal track line (the teeth) */}
+        {/* The horizontal track line (condensed to center 30%) */}
         <div style={{
-          position: 'absolute', top: '50%', left: '10%', width: '80%', height: '2px',
-          borderBottom: '2px dashed rgba(0, 255, 204, 0.3)', transform: 'translateY(-50%)', zIndex: 5
+          position: 'absolute', top: '50%', left: '35%', width: '30%', height: '4px',
+          borderBottom: '2px dotted rgba(0, 255, 204, 0.5)', transform: 'translateY(-50%)', zIndex: 5
         }} />
 
-        {/* The Zipper Pull */}
+        {/* NEW: Realistic CSS Zipper Handle */}
         <div ref={zipperPullRef} style={{
-          position: 'absolute', top: '50%', left: 0, // Left handled by transform in JS
-          width: '60px', height: '80px', backgroundColor: 'rgba(5, 10, 15, 0.9)',
-          border: '2px solid #00ffcc', borderRadius: '12px',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 30px rgba(0, 255, 204, 0.5), inset 0 0 15px rgba(0, 255, 204, 0.3)',
-          zIndex: 10, transform: 'translate(10vw, -50%)', // Default starting spot
-          marginLeft: '-30px' // Center it on the finger
+          position: 'absolute', top: '50%', left: 0, 
+          width: '24px', height: '65px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          zIndex: 10, transform: 'translate(35vw, -50%)', marginLeft: '-12px',
+          transition: 'box-shadow 0.1s ease-out' // For the glowing core effect
         }}>
-          {/* Chevron arrows inside the zipper */}
-          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.5rem', lineHeight: '0.8' }}>&#8250;</span>
-          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.5rem', lineHeight: '0.8' }}>&#8250;</span>
+          {/* Slider Body (The metal block) */}
+          <div style={{ 
+            width: '24px', height: '28px', backgroundColor: '#e0e0e0', 
+            borderRadius: '4px 4px 10px 10px', 
+            boxShadow: 'inset 0 4px 0 #fff, inset 0 -4px 0 #999, 0 0 15px rgba(0,255,204,0.8)',
+            position: 'relative', zIndex: 2
+          }} />
+          
+          {/* Pull Tab (The dangling part with the hole) */}
+          <div style={{ 
+            width: '18px', height: '40px', backgroundColor: 'rgba(5, 15, 25, 0.9)', 
+            border: '2px solid #00ffcc', borderRadius: '0 0 10px 10px', 
+            marginTop: '-6px', position: 'relative', zIndex: 1,
+            boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
+          }}>
+            {/* The hole in the pull tab */}
+            <div style={{ 
+              position: 'absolute', top: '8px', left: '4px', 
+              width: '6px', height: '14px', backgroundColor: 'transparent', 
+              border: '1px solid rgba(0,255,204,0.5)', borderRadius: '3px' 
+            }} />
+          </div>
         </div>
       </div>
 
+      {/* Cinematic Flash Effect on Open */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: '#fff', pointerEvents: 'none', zIndex: 900,
+        opacity: flash ? 1 : 0, transition: 'opacity 0.8s ease-out'
+      }} />
+
       {/* ================================================= */}
-      {/* 2. THE MAIN UI & EXPANDED WINDOW (UNCHANGED)      */}
+      {/* 2. THE MAIN UI & EXPANDED WINDOW                  */}
       {/* ================================================= */}
       <div style={{ opacity: phase === 'main' ? 1 : 0, pointerEvents: phase === 'main' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in' }}>
         <div ref={dropZoneRef} style={{
