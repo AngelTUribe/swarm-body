@@ -7,7 +7,7 @@ function App() {
   const handsPositionRef = useRef({ landmarks: [] });
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#050505', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: 'transparent', overflow: 'hidden' }}>
       
       {/* 1. Camera in the very back (zIndex 0) */}
       <CameraView handsPositionRef={handsPositionRef} />
