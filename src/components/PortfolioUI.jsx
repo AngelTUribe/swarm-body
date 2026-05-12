@@ -5,17 +5,17 @@ const PROJECTS = [
     id: 'p1', 
     title: 'Interactive Portfolio', 
     subtitle: 'WEB.DEV // 01', 
-    url: 'https://example.com' // Your working portfolio link
+    url: 'https://angelturibe.github.io/my-portfolio/' // Your working portfolio link
   },
   { 
     id: 'p2', 
-    title: 'Engineering Resume', 
+    title: 'My resume!', 
     subtitle: 'DOC.SYS // 02', 
-    url: '/resume.pdf' // Because it is in the public folder, we just use a forward slash!
+    url: 'resume.pdf' // Because it is in the public folder, we just use a forward slash!
   },
   { 
     id: 'p3', 
-    title: 'Spatial Game', 
+    title: 'TBD: Gonna make a cool game here', 
     subtitle: 'SYS.RENDER // 03', 
     url: 'about:blank' // Placeholder until we build the game
   },
