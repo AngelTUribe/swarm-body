@@ -9,7 +9,6 @@ const PROJECTS = [
 const PortfolioUI = ({ handsPositionRef }) => {
   const cursor1Ref = useRef(null);
   const cursor2Ref = useRef(null);
-  const topBarRef = useRef(null);
 
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
@@ -17,27 +16,45 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
   const state = useRef({
     draggedId: null,
-    dragMode: null, 
-    isExpanded: false, 
+    activeId: null, // Tracks which cube is currently running in the hole
+    layout: 'central', // 'central' or 'split'
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
     readyToExecute: false,
+    holeCentral: { x: 0, y: 0 },
+    holeSplit: { x: 0, y: 0 },
     projects: {} 
   });
 
   useEffect(() => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
-    const centerX = screenW / 2;
-    const centerY = screenH * 0.85; 
+    
+    // 1. Move everything UP (0.65 instead of 0.85)
+    const centerY = screenH * 0.65; 
     const radius = Math.min(screenW, screenH) * 0.4; 
     const angles = [-35, 0, 35]; 
 
+    // Target positions for the Execute Hole
+    state.current.holeCentral = { x: screenW / 2, y: centerY };
+    state.current.holeSplit = { x: screenW * 0.85, y: screenH * 0.5 }; // Right side
+
     PROJECTS.forEach((p, index) => {
+      // Target positions for Central Arc
       const rad = (angles[index] - 90) * (Math.PI / 180);
-      const x = centerX + radius * Math.cos(rad); 
-      const y = centerY + radius * Math.sin(rad); 
-      state.current.projects[p.id] = { origX: x, origY: y, currX: x, currY: y };
+      const cx = (screenW / 2) + radius * Math.cos(rad); 
+      const cy = centerY + radius * Math.sin(rad); 
+      
+      // Target positions for Vertical Left Side
+      const sx = screenW * 0.15;
+      const sy = screenH * 0.3 + (index * screenH * 0.2); // Stack vertically
+
+      state.current.projects[p.id] = { 
+        central: { x: cx, y: cy }, 
+        split: { x: sx, y: sy }, 
+        currX: cx, currY: cy,
+        slotPos: { x: cx, y: cy }
+      };
     });
     setMounted(true);
   }, []);
@@ -63,7 +80,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const thumb = hand[4]; const index = hand[8];
         const ix = (1 - index.x) * screenW; const iy = index.y * screenH;
         const tx = (1 - thumb.x) * screenW; const ty = thumb.y * screenH;
-        
         if (cursorRef.current) {
           cursorRef.current.style.transform = `translate(${ix}px, ${iy}px)`;
           const pinch = Math.hypot(tx - ix, ty - iy) < 45;
@@ -75,8 +91,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       const hand1 = processHand(hands[0], cursor1Ref);
       const hand2 = processHand(hands[1], cursor2Ref);
-
       let activeHand = (hand1?.pinch) ? hand1 : (hand2?.pinch ? hand2 : (hand1 || hand2));
+      
       if (activeHand) {
         indexX = activeHand.ix; indexY = activeHand.iy;
         isPinching = activeHand.pinch;
@@ -112,76 +128,102 @@ const PortfolioUI = ({ handsPositionRef }) => {
       }
 
       handsPositionRef.current.zipperState = { phase: 'main' };
-      const dropCenterX = screenW / 2;
-      const dropCenterY = screenH * 0.85;
 
-      if (state.current.isExpanded && indexX !== null) {
-        const topEl = topBarRef.current;
-        if (topEl) {
-          const topRect = topEl.getBoundingClientRect();
-          if (indexX > topRect.left && indexX < topRect.right && indexY > topRect.top && indexY < topRect.bottom) {
-            state.current.draggedId = expandedProject.id;
-            state.current.dragMode = 'sticky'; 
-            state.current.isExpanded = false;
-            setExpandedProject(null);
+      // === PHYSICS GLIDE (Smoothly interpolate objects to their targets) ===
+      PROJECTS.forEach(p => {
+        const pState = state.current.projects[p.id];
+        
+        // 1. Where should this specific empty slot outline be right now?
+        pState.slotPos = state.current.layout === 'split' ? pState.split : pState.central;
+
+        // 2. Where should the physical cube be right now? (If it's NOT being dragged)
+        if (state.current.draggedId !== p.id) {
+          let targetX, targetY;
+          if (state.current.activeId === p.id) {
+            // This cube is active! It goes in the hole.
+            targetX = state.current.layout === 'split' ? state.current.holeSplit.x : state.current.holeCentral.x;
+            targetY = state.current.layout === 'split' ? state.current.holeSplit.y : state.current.holeCentral.y;
+          } else {
+            // This cube is inactive! It goes in its slot.
+            targetX = pState.slotPos.x;
+            targetY = pState.slotPos.y;
           }
+          // Smooth Lerp for 2D position (Which passes perfectly into 3D)
+          pState.currX += (targetX - pState.currX) * 0.1;
+          pState.currY += (targetY - pState.currY) * 0.1;
         }
-      }
+      });
 
-      if (!state.current.isExpanded && !state.current.draggedId && isPinching && indexX !== null) {
+      // === PINCH DETECTION (Grab from ANYWHERE) ===
+      if (!state.current.draggedId && isPinching && indexX !== null) {
         for (let p of PROJECTS) {
           const pState = state.current.projects[p.id];
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
-            state.current.dragMode = 'pinch';
             state.current.readyToExecute = false;
             break; 
           }
         }
       }
 
+      // === DRAG & SNAP LOGIC ===
       if (state.current.draggedId) {
-        const pState = state.current.projects[state.current.draggedId];
+        const pid = state.current.draggedId;
+        const pState = state.current.projects[pid];
+        
+        // Determine targets based on current layout
+        const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
+        const activeSlot = pState.slotPos; // This is the cube's designated home
 
-        if (state.current.dragMode === 'sticky') {
-          const distToOrig = Math.hypot(indexX - pState.origX, indexY - pState.origY);
-          if (distToOrig < 150) {
-            isSnapped = true; 
-            pState.currX = pState.origX; pState.currY = pState.origY;
-            if (distToOrig < 80) state.current.draggedId = null; 
-          } else {
-            pState.currX = indexX; pState.currY = indexY;
-          }
-        } else {
-          const distToHole = Math.hypot(indexX - dropCenterX, indexY - dropCenterY);
-          
+        if (state.current.layout === 'central') {
+          // OPENING A WINDOW
+          const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
           if (isPinching) {
             if (distToHole < 150) {
-              isSnapped = true; 
-              pState.currX = dropCenterX; pState.currY = dropCenterY;
-              state.current.readyToExecute = true; 
+              isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; state.current.readyToExecute = true; 
             } else {
-              pState.currX = indexX; pState.currY = indexY;
-              if (distToHole > 250) state.current.readyToExecute = false; 
+              pState.currX = indexX; pState.currY = indexY; if (distToHole > 250) state.current.readyToExecute = false; 
             }
           } else {
-            // FIX IS HERE: Grab the ID before we wipe it!
-            const droppedId = state.current.draggedId;
             state.current.draggedId = null;
-            
             if (state.current.readyToExecute || distToHole < 150) {
-              setExpandedProject(PROJECTS.find(p => p.id === droppedId));
-              state.current.isExpanded = true;
+              // EXECUTE! Start the layout split animation
+              state.current.layout = 'split';
+              state.current.activeId = pid;
+              // Wait 600ms for 3D animation to finish, THEN open the web window
+              setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
             }
-            pState.currX = pState.origX; pState.currY = pState.origY;
+            state.current.readyToExecute = false;
+          }
+        } 
+        
+        else if (state.current.layout === 'split') {
+          // CLOSING A WINDOW (Dragging from Right hole -> to Left slot)
+          const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
+          if (isPinching) {
+            if (distToSlot < 150) {
+              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; state.current.readyToExecute = true; 
+            } else {
+              pState.currX = indexX; pState.currY = indexY; if (distToSlot > 250) state.current.readyToExecute = false; 
+            }
+          } else {
+            state.current.draggedId = null;
+            if (state.current.readyToExecute || distToSlot < 150) {
+              // SHUT DOWN! Start closing animation
+              setExpandedProject(null); // Instantly hide webpage
+              state.current.layout = 'central';
+              state.current.activeId = null;
+            }
             state.current.readyToExecute = false;
           }
         }
       }
 
+      // STREAM DATA TO 3D SCENE
       handsPositionRef.current.uiState = {
-        phase, isExpanded: state.current.isExpanded, projects: state.current.projects,
-        draggedId: state.current.draggedId, isSnapped, screenW, screenH
+        phase, layout: state.current.layout, projects: state.current.projects,
+        holePos: state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral,
+        draggedId: state.current.draggedId, activeId: state.current.activeId, isSnapped, screenW, screenH
       };
 
       animationFrameId = requestAnimationFrame(updateLoop);
@@ -208,28 +250,42 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* MAIN UI */}
-      {phase === 'main' && (
-        <>
-          {PROJECTS.map(p => (
-            <div key={p.id} style={{ position: 'absolute', left: state.current.projects[p.id].origX, top: state.current.projects[p.id].origY - 80, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', opacity: state.current.isExpanded ? 0 : 1 }}>
-              <strong>{p.title}</strong>
-            </div>
-          ))}
-          {!state.current.isExpanded && (
-            <div style={{ position: 'absolute', left: '50%', top: '85%', transform: 'translate(-50%, 70px)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold' }}>
-              DRAG HERE TO INITIALIZE
-            </div>
-          )}
-        </>
+      {/* DYNAMIC LABELS (Follow the animated slots) */}
+      {phase === 'main' && PROJECTS.map(p => {
+        const pState = state.current.projects[p.id];
+        if (!pState.slotPos) return null;
+        return (
+          <div key={p.id} style={{ 
+            position: 'absolute', left: pState.slotPos.x, top: pState.slotPos.y - 80, 
+            transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', 
+            // Hide the labels when expanded so the screen is clean
+            opacity: state.current.layout === 'split' ? 0 : 1, transition: 'opacity 0.3s' 
+          }}>
+            <strong>{p.title}</strong>
+          </div>
+        )
+      })}
+
+      {/* DYNAMIC EXECUTE LABEL (Follows the hole) */}
+      {phase === 'main' && state.current.layout === 'central' && (
+        <div style={{ 
+          position: 'absolute', left: state.current.holeCentral.x, top: state.current.holeCentral.y + 70, 
+          transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold' 
+        }}>
+          DRAG HERE TO INITIALIZE
+        </div>
       )}
 
-      {/* EXPANDED WINDOW */}
+      {/* EXPANDED WINDOW: Positioned in the middle 50% of the screen */}
       {expandedProject && (
-        <div style={{ position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', backgroundColor: 'rgba(5, 10, 15, 0.9)', borderRadius: '16px', border: '1px solid #00ffcc', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
-          <div ref={topBarRef} style={{ padding: '15px', borderBottom: '1px solid rgba(0,255,204,0.3)', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ 
+          position: 'absolute', top: '15vh', left: '25vw', width: '50vw', height: '70vh', 
+          backgroundColor: 'rgba(5, 10, 15, 0.9)', borderRadius: '16px', border: '1px solid #00ffcc', 
+          zIndex: 100, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out' 
+        }}>
+          <div style={{ padding: '15px', borderBottom: '1px solid rgba(0,255,204,0.3)', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
             <span>{expandedProject.title}</span>
-            <span style={{ color: '#00ffcc', fontSize: '0.8rem' }}>::: HOVER TO CLOSE :::</span>
+            <span style={{ color: '#ff0055', fontSize: '0.8rem', fontWeight: 'bold' }}>DRAG CUBE TO LEFT TO CLOSE</span>
           </div>
           <div style={{ flex: 1, padding: '10px', pointerEvents: 'auto' }}>
             <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} />
