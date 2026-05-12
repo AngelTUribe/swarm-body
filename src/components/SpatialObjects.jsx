@@ -5,13 +5,12 @@ import * as THREE from 'three';
 const SpatialObjects = ({ handsPositionRef }) => {
   const { viewport } = useThree();
   const cubesRef = useRef({});
-  const slotRefs = useRef({}); // Individual refs for animating slots
+  const slotRefs = useRef({}); 
   const holeRef = useRef();
 
   useFrame(() => {
     const uiState = handsPositionRef.current?.uiState;
     
-    // Hide everything before boot finishes
     if (!uiState || uiState.phase !== 'main') {
       if (holeRef.current) holeRef.current.visible = false;
       Object.values(slotRefs.current).forEach(s => s && (s.visible = false));
@@ -25,14 +24,13 @@ const SpatialObjects = ({ handsPositionRef }) => {
       return { x, y };
     };
 
-    // 1. ANIMATE THE EXECUTE HOLE
-    if (holeRef.current && uiState.holePos) {
+    // 1. RENDER EXECUTE HOLE
+    if (holeRef.current && uiState.holeCurrX !== undefined) {
       holeRef.current.visible = true;
-      const targetHole3D = to3D(uiState.holePos.x, uiState.holePos.y);
+      const targetHole3D = to3D(uiState.holeCurrX, uiState.holeCurrY);
       
-      // Smooth 3D Lerp for the Hole outline
-      holeRef.current.position.x += (targetHole3D.x - holeRef.current.position.x) * 0.1;
-      holeRef.current.position.y += (targetHole3D.y - holeRef.current.position.y) * 0.1;
+      holeRef.current.position.x = targetHole3D.x;
+      holeRef.current.position.y = targetHole3D.y;
       holeRef.current.position.z = -0.6;
       
       const targetColor = new THREE.Color(uiState.isSnapped ? '#ffffff' : (uiState.layout === 'split' ? '#ff0055' : '#00ffcc'));
@@ -41,40 +39,36 @@ const SpatialObjects = ({ handsPositionRef }) => {
       holeRef.current.material.emissiveIntensity = uiState.isSnapped ? 3 : 0.8;
     }
 
-    // 2. ANIMATE CUBES AND SLOTS
+    // 2. RENDER CUBES AND SLOTS
     Object.keys(uiState.projects).forEach((id) => {
       const pState = uiState.projects[id];
       
-      // A. Move the Empty Slot Wireframes
-      if (pState.slotPos) {
-        const targetSlot3D = to3D(pState.slotPos.x, pState.slotPos.y);
+      // A. Empty Slot Wireframes
+      if (pState.slotCurrX !== undefined) {
+        const targetSlot3D = to3D(pState.slotCurrX, pState.slotCurrY);
         const slot = slotRefs.current[id];
         if (slot) {
           slot.visible = true;
-          slot.position.x += (targetSlot3D.x - slot.position.x) * 0.1;
-          slot.position.y += (targetSlot3D.y - slot.position.y) * 0.1;
+          slot.position.x = targetSlot3D.x;
+          slot.position.y = targetSlot3D.y;
           slot.position.z = -0.6;
         }
       }
 
-      // B. Move the Physical Glass Cubes
+      // B. Physical Glass Cubes
       const cube = cubesRef.current[id];
       if (cube) {
         cube.visible = true;
-        
-        // Cube 2D coordinates are already lerped beautifully in PortfolioUI, 
-        // so we just map them directly to 3D.
         const pos = to3D(pState.currX, pState.currY);
+        
         cube.position.x = pos.x; 
         cube.position.y = pos.y;
         
         if (uiState.draggedId === id && !uiState.isSnapped) {
-           // When grabbed, spin and pop out
            cube.rotation.x += 0.08; cube.rotation.y += 0.08;
            cube.scale.setScalar(0.7);
            cube.position.z = 0.5; 
         } else {
-           // When docked, lock rotation and drop back into slot
            cube.rotation.set(0, 0, 0); 
            cube.scale.setScalar(1.0);
            cube.position.z = -0.6; 
@@ -90,7 +84,6 @@ const SpatialObjects = ({ handsPositionRef }) => {
         <meshStandardMaterial color="#00ffcc" wireframe emissive="#00ffcc" />
       </mesh>
 
-      {/* RENDER DYNAMIC SLOTS USING REFS */}
       {['p1', 'p2', 'p3'].map((id) => (
         <mesh key={`slot-${id}`} ref={el => slotRefs.current[id] = el}>
           <boxGeometry args={[1.25, 1.25, 1.25]} />
