@@ -1,16 +1,15 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
-import Swarm from './Swarm'; // <-- Import the new component
+import Swarm from './Swarm'; 
+import SprawlParticles from './SprawlParticles'; // <-- 1. Import it
 
 const Scene = ({ handsPositionRef }) => {
   return (
     <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
+      <Swarm handsPositionRef={handsPositionRef} />
       
-      {/* We pass the ML data into the Swarm. 
-        You can increase 'count' if your computer is fast! 
-      */}
-      <Swarm handsPositionRef={handsPositionRef} count={4000} />
-
+      {/* 2. Add the Sprawl Generator */}
+      <SprawlParticles handsPositionRef={handsPositionRef} />
     </Canvas>
   );
 };
