@@ -37,7 +37,7 @@ const CameraView = ({ handsPositionRef }) => {
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover', // Stretches to fill monitor
+          objectFit: 'fill', // Stretches to fill monitor
           transform: 'scaleX(-1)', // Mirrored
           opacity: 0.3 // Dimmed so the 3D hologram still glows!
         }}

@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber'; // <-- ADD useThree here
 import * as THREE from 'three';
 
 const HAND_CONNECTIONS = [
@@ -28,6 +28,7 @@ const getThickness = (jointIndex) => {
 // FIX 1: Lowered default count to 6000 to instantly fix the lag
 const Swarm = ({ handsPositionRef, count = 6000 }) => {
   const pointsRef = useRef();
+  const { viewport } = useThree();
 
   const { positions, assignments, tValues, offsets, handAssignments, speeds } = useMemo(() => {
     const positions = new Float32Array(count * 3);
@@ -84,13 +85,13 @@ const Swarm = ({ handsPositionRef, count = 6000 }) => {
 
       if (!jointA || !jointB) continue;
 
-      const ax = ((1 - jointA.x) - 0.5) * 10;
-      const ay = -(jointA.y - 0.5) * 10;
+      const ax = ((1 - jointA.x) - 0.5) * viewport.width;
+      const ay = -(jointA.y - 0.5) * viewport.height;
       const az = -(jointA.z || 0) * 5; 
 
-      const bx = ((1 - jointB.x) - 0.5) * 10;
-      const by = -(jointB.y - 0.5) * 10;
-      const bz = -(jointB.z || 0) * 5; 
+      const bx = ((1 - jointB.x) - 0.5) * viewport.width;
+      const by = -(jointB.y - 0.5) * viewport.height;
+      const bz = -(jointB.z || 0) * 5;
 
       const t = tValues[i];
       const centerX = ax + (bx - ax) * t;
