@@ -21,7 +21,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
     readyToExecute: false,
-    holeCurrX: window.innerWidth / 2, // NEW: Real-time 2D tracking
+    holeCurrX: window.innerWidth / 2, 
     holeCurrY: window.innerHeight * 0.65,
     holeCentral: { x: 0, y: 0 },
     holeSplit: { x: 0, y: 0 },
@@ -53,7 +53,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         central: { x: cx, y: cy }, 
         split: { x: sx, y: sy }, 
         currX: cx, currY: cy,
-        slotCurrX: cx, slotCurrY: cy // NEW: Real-time 2D tracking
+        slotCurrX: cx, slotCurrY: cy 
       };
     });
     setMounted(true);
@@ -134,13 +134,27 @@ const PortfolioUI = ({ handsPositionRef }) => {
       state.current.holeCurrX += (targetHole.x - state.current.holeCurrX) * 0.1;
       state.current.holeCurrY += (targetHole.y - state.current.holeCurrY) * 0.1;
 
+      // FIX: Manually update the "EXECUTE" label DOM directly for smooth 60fps gliding
+      const execLabel = document.getElementById('execute-label');
+      if (execLabel) {
+        execLabel.style.left = `${state.current.holeCurrX}px`;
+        execLabel.style.top = `${state.current.holeCurrY + 70}px`;
+        execLabel.style.opacity = state.current.layout === 'split' ? '0' : '1';
+      }
+
       PROJECTS.forEach(p => {
         const pState = state.current.projects[p.id];
         const targetSlot = state.current.layout === 'split' ? pState.split : pState.central;
 
-        // Smoothly move the logical slot (Both Text and 3D wireframe will follow this)
         pState.slotCurrX += (targetSlot.x - pState.slotCurrX) * 0.1;
         pState.slotCurrY += (targetSlot.y - pState.slotCurrY) * 0.1;
+
+        // FIX: Manually update the Project text DOM directly for smooth 60fps gliding
+        const projectLabel = document.getElementById(`label-${p.id}`);
+        if (projectLabel) {
+          projectLabel.style.left = `${pState.slotCurrX}px`;
+          projectLabel.style.top = `${pState.slotCurrY - 80}px`;
+        }
 
         if (state.current.draggedId !== p.id) {
           let targetX = (state.current.activeId === p.id) ? targetHole.x : targetSlot.x;
@@ -241,27 +255,26 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* DYNAMIC LABELS (Now using physical 2D coords to perfectly sync with 3D) */}
+      {/* DYNAMIC LABELS (Added IDs so the physics loop can drive them) */}
       {phase === 'main' && PROJECTS.map(p => {
         const pState = state.current.projects[p.id];
         if (pState.slotCurrX === undefined) return null;
         return (
-          <div key={p.id} style={{ 
+          <div key={p.id} id={`label-${p.id}`} style={{ 
             position: 'absolute', left: pState.slotCurrX, top: pState.slotCurrY - 80, 
             transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace',
-            // Opacity is 1 permanently so they stay visible when shifted left!
           }}>
             <strong>{p.title}</strong>
           </div>
         )
       })}
 
-      {/* DYNAMIC EXECUTE LABEL */}
+      {/* DYNAMIC EXECUTE LABEL (Added ID) */}
       {phase === 'main' && (
-        <div style={{ 
+        <div id="execute-label" style={{ 
           position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, 
           transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold',
-          opacity: state.current.layout === 'split' ? 0 : 1, transition: 'opacity 0.3s'
+          transition: 'opacity 0.3s'
         }}>
           DRAG HERE TO INITIALIZE
         </div>
