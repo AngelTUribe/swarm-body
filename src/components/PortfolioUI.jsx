@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // 1. Add 'url' to your projects (Use real links to your deployed projects later!)
 const PROJECTS = [
-  { id: 'p1', title: 'React Dashboard', subtitle: 'Web Dev', url: 'https://example.com' },
+  { id: 'p1', title: 'My Portfolio', subtitle: 'Web Dev', url: 'https://angelturibe.github.io/my-portfolio/' },
   { id: 'p2', title: 'Swarm Body', subtitle: 'Creative Coding', url: 'https://example.com' },
   { id: 'p3', title: 'AI Agent', subtitle: 'Machine Learning', url: 'https://example.com' },
 ];
