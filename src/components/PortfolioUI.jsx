@@ -266,7 +266,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
   if (!mounted) return null;
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 10 }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 2000 }}>
       {/* BOOT SCREEN */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 0.5s', zIndex: 50 }}>
         <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '500px', padding: '20px', textAlign: 'center', backgroundColor: 'rgba(5, 10, 15, 0.8)', border: '1px solid #00ffcc', borderRadius: '12px' }}>
@@ -310,7 +310,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div style={{ 
           position: 'absolute', top: '15vh', left: '25vw', width: '50vw', height: '70vh', 
           backgroundColor: 'rgba(5, 10, 15, 0.9)', borderRadius: '16px', border: '1px solid #00ffcc', 
-          zIndex: 100, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out' 
+          zIndex: 100, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out',
+          pointerEvents: 'auto'
         }}>
           <div style={{ padding: '15px', borderBottom: '1px solid rgba(0,255,204,0.3)', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
             <span>{expandedProject.title}</span>
