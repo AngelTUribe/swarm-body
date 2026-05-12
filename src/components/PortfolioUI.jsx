@@ -21,6 +21,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     isExpanded: false, 
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
+    readyToExecute: false, // NEW: Magnetic Latch State
     projects: {} 
   });
 
@@ -133,29 +134,48 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
             state.current.dragMode = 'pinch';
+            state.current.readyToExecute = false;
             break; 
           }
         }
       }
 
+      // === NEW SNAPPING LOGIC ===
       if (state.current.draggedId) {
         const pState = state.current.projects[state.current.draggedId];
-        pState.currX = indexX; pState.currY = indexY;
 
         if (state.current.dragMode === 'sticky') {
-          const distToOrig = Math.hypot(pState.currX - pState.origX, pState.currY - pState.origY);
-          if (distToOrig < 100) {
-            isSnapped = true; pState.currX = pState.origX; pState.currY = pState.origY;
-            if (distToOrig < 40) state.current.draggedId = null;
+          const distToOrig = Math.hypot(indexX - pState.origX, indexY - pState.origY);
+          if (distToOrig < 150) {
+            isSnapped = true; 
+            pState.currX = pState.origX; pState.currY = pState.origY;
+            if (distToOrig < 80) state.current.draggedId = null; // Auto drop if close enough
+          } else {
+            pState.currX = indexX; pState.currY = indexY;
           }
         } else {
-          const distToHole = Math.hypot(pState.currX - dropCenterX, pState.currY - dropCenterY);
-          if (distToHole < 100) {
-            isSnapped = true; pState.currX = dropCenterX; pState.currY = dropCenterY;
-          }
-          if (!isPinching) {
-            if (distToHole < 80) { setExpandedProject(PROJECTS.find(p => p.id === state.current.draggedId)); state.current.isExpanded = true; }
-            state.current.draggedId = null; pState.currX = pState.origX; pState.currY = pState.origY;
+          // Calculate distance from HAND to HOLE
+          const distToHole = Math.hypot(indexX - dropCenterX, indexY - dropCenterY);
+          
+          if (isPinching) {
+            if (distToHole < 150) {
+              isSnapped = true; 
+              pState.currX = dropCenterX; pState.currY = dropCenterY;
+              state.current.readyToExecute = true; // LATCHED
+            } else {
+              pState.currX = indexX; pState.currY = indexY;
+              if (distToHole > 250) state.current.readyToExecute = false; // Unlatch if pulled far away
+            }
+          } else {
+            // Pinch Released! Did we release while latched?
+            state.current.draggedId = null;
+            if (state.current.readyToExecute || distToHole < 150) {
+              setExpandedProject(PROJECTS.find(p => p.id === state.current.draggedId));
+              state.current.isExpanded = true;
+            }
+            // Send back to slot, reset state
+            pState.currX = pState.origX; pState.currY = pState.origY;
+            state.current.readyToExecute = false;
           }
         }
       }
@@ -182,7 +202,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
           <h2 style={{ color: '#fff', fontFamily: 'monospace', letterSpacing: '4px' }}>SPATIAL ENVIRONMENT</h2>
           <p style={{ color: '#00ffcc' }}>Pinch and pull the zipper to begin.</p>
         </div>
-        {/* RE-ADDED ZIPPER LINE */}
         <div style={{ position: 'absolute', top: '50%', left: '35%', width: '30%', height: '2px', borderBottom: '2px dotted #00ffcc', transform: 'translateY(-50%)', opacity: 0.5 }} />
         <div id="zipper-handle" style={{ position: 'absolute', top: '50%', left: 0, width: '60px', height: '20px', display: 'flex', alignItems: 'center', transform: 'translate(35vw, -50%)', marginLeft: '-30px' }}>
           <div style={{ width: '30px', height: '24px', backgroundColor: '#fff', borderRadius: '4px', boxShadow: '0 0 15px #00ffcc' }} />
@@ -219,7 +238,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-      {/* CURSORS - FIXED Z-INDEX */}
+      {/* CURSORS */}
       <div ref={cursor1Ref} style={{ ...cursorStyle, zIndex: 1000 }} />
       <div ref={cursor2Ref} style={{ ...cursorStyle, zIndex: 1000 }} />
     </div>
