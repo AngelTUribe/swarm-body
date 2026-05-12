@@ -1,9 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const PROJECTS = [
-  { id: 'p1', title: 'My Portfolio!', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
-  { id: 'p2', title: 'Swarm Engine', subtitle: 'SYS.RENDER // 02', url: 'https://github.com/AngelTUribe/swarm-body' },
-  { id: 'p3', title: 'My Linkedin', subtitle: 'AI.LOGIC // 03', url: 'https://www.linkedin.com/in/angel-turibe/' },
+  { 
+    id: 'p1', 
+    title: 'Interactive Portfolio', 
+    subtitle: 'WEB.DEV // 01', 
+    url: 'https://example.com' // Your working portfolio link
+  },
+  { 
+    id: 'p2', 
+    title: 'Engineering Resume', 
+    subtitle: 'DOC.SYS // 02', 
+    url: '/resume.pdf' // Because it is in the public folder, we just use a forward slash!
+  },
+  { 
+    id: 'p3', 
+    title: 'Spatial Game', 
+    subtitle: 'SYS.RENDER // 03', 
+    url: 'about:blank' // Placeholder until we build the game
+  },
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
