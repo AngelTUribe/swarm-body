@@ -24,7 +24,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      // Reset cursors if hands are missing
       if (cursor1Ref.current) cursor1Ref.current.style.opacity = hands[0] ? 1 : 0;
       if (cursor2Ref.current) cursor2Ref.current.style.opacity = hands[1] ? 1 : 0;
 
@@ -32,7 +31,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       let activePinchY = null;
       let isPinching = false;
 
-      // Helper function to process a hand
       const processHand = (hand, cursorRef) => {
         const thumb = hand[4];
         const index = hand[8];
@@ -42,7 +40,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const indexX = (1 - index.x) * screenW;
         const indexY = index.y * screenH;
 
-        // Lock to index finger
         if (cursorRef.current) {
           cursorRef.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
         }
@@ -54,7 +51,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
           cursorRef.current.style.backgroundColor = handIsPinching ? '#00ffcc' : 'white';
         }
 
-        // If this hand is pinching, set it as the active controller
         if (handIsPinching) {
           isPinching = true;
           activePinchX = indexX;
@@ -62,11 +58,9 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       };
 
-      // Process Hand 1 and Hand 2
       if (hands[0]) processHand(hands[0], cursor1Ref);
       if (hands[1]) processHand(hands[1], cursor2Ref);
 
-      // --- DRAG LOGIC ---
       const buttonEl = buttonRef.current;
       const dropZoneEl = dropZoneRef.current;
 
@@ -74,7 +68,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const btnRect = buttonEl.getBoundingClientRect();
         const dropRect = dropZoneEl.getBoundingClientRect();
 
-        // Check hover using the ACTIVE pinching hand
+        // Calculate the exact center of the Drop Zone
+        const dropCenterX = dropRect.left + dropRect.width / 2;
+        const dropCenterY = dropRect.top + dropRect.height / 2;
+
         const isHoveringBtn = activePinchX !== null &&
           activePinchX > btnRect.left && activePinchX < btnRect.right &&
           activePinchY > btnRect.top && activePinchY < btnRect.bottom;
@@ -83,30 +80,51 @@ const PortfolioUI = ({ handsPositionRef }) => {
           state.current.isDragging = true;
         }
 
+        let isMagnetized = false;
+
         if (state.current.isDragging) {
           if (isPinching) {
-            // Drag the button with whoever is pinching
-            state.current.buttonCurrentPos.x = activePinchX - btnRect.width / 2;
-            state.current.buttonCurrentPos.y = activePinchY - btnRect.height / 2;
+            // --- NEW: MAGNETIC SNAP LOGIC ---
+            // How far is the dragged button from the drop zone?
+            const distToDrop = Math.hypot(activePinchX - dropCenterX, activePinchY - dropCenterY);
+
+            if (distToDrop < 150) { // The "Gravity Well" radius (150px)
+              // Snap the button perfectly to the center of the zone
+              state.current.buttonCurrentPos.x = dropCenterX - btnRect.width / 2;
+              state.current.buttonCurrentPos.y = dropCenterY - btnRect.height / 2;
+              isMagnetized = true;
+            } else {
+              // Follow the finger normally
+              state.current.buttonCurrentPos.x = activePinchX - btnRect.width / 2;
+              state.current.buttonCurrentPos.y = activePinchY - btnRect.height / 2;
+            }
           } else {
             // Dropped!
             state.current.isDragging = false;
             
-            // Check Drop Zone
-            // We use the center of the button to check the drop zone, not the finger
-            const btnCenterX = state.current.buttonCurrentPos.x + btnRect.width / 2;
-            const btnCenterY = state.current.buttonCurrentPos.y + btnRect.height / 2;
+            // If we let go while inside the magnetic radius, it counts as a success!
+            const distToDrop = Math.hypot(
+              (state.current.buttonCurrentPos.x + btnRect.width / 2) - dropCenterX,
+              (state.current.buttonCurrentPos.y + btnRect.height / 2) - dropCenterY
+            );
 
-            const isHoveringDropZone = 
-              btnCenterX > dropRect.left && btnCenterX < dropRect.right &&
-              btnCenterY > dropRect.top && btnCenterY < dropRect.bottom;
-
-            if (isHoveringDropZone) {
+            if (distToDrop < 100) {
               alert("Project Launched!");
             }
-            // Always snap back after dropping
             state.current.buttonCurrentPos = { ...state.current.buttonOriginalPos };
+            isMagnetized = false; // Reset visual state
           }
+        }
+
+        // --- NEW: VISUAL FEEDBACK FOR DROP ZONE ---
+        if (isMagnetized) {
+          dropZoneEl.style.transform = 'translateX(-50%) scale(1.1)'; // Make it bulge
+          dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.4)'; // Make it glow brighter
+          dropZoneEl.style.boxShadow = '0 0 30px rgba(0, 255, 204, 0.8)';
+        } else {
+          dropZoneEl.style.transform = 'translateX(-50%) scale(1)';
+          dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.1)';
+          dropZoneEl.style.boxShadow = 'none';
         }
 
         buttonEl.style.transform = `translate(${state.current.buttonCurrentPos.x}px, ${state.current.buttonCurrentPos.y}px)`;
