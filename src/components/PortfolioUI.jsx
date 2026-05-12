@@ -264,9 +264,11 @@ const PortfolioUI = ({ handsPositionRef }) => {
       {/* ================================================= */}
       <div style={{
         position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-        opacity: (phase === 'boot' || phase === 'transition') ? 1 : 0, 
+        // The wrapper stays alive during transition, but vanishes completely in 'main'
+        opacity: phase === 'main' ? 0 : 1, 
         pointerEvents: phase === 'boot' ? 'auto' : 'none',
-        transition: 'opacity 0.5s ease-out'
+        transition: 'opacity 0.5s ease-out',
+        zIndex: 50
       }}>
         
         {/* Sleek Instruction Box */}
@@ -276,7 +278,9 @@ const PortfolioUI = ({ handsPositionRef }) => {
           backgroundColor: 'rgba(5, 10, 15, 0.7)', backdropFilter: 'blur(15px)',
           border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '16px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,255,204,0.1)',
-          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.3s ease-out'
+          // BULLETPROOF LOGIC: 1 only during 'boot', 0 everywhere else
+          opacity: phase === 'boot' ? 1 : 0, 
+          transition: 'opacity 0.3s ease-out'
         }}>
           <h2 style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1.6rem', letterSpacing: '5px', margin: '0 0 15px 0' }}>
             SPATIAL HAND ENVIRONMENT
@@ -287,40 +291,38 @@ const PortfolioUI = ({ handsPositionRef }) => {
           </p>
         </div>
 
-        {/* The horizontal track line (condensed to center 30%) */}
+        {/* The horizontal track line */}
         <div style={{
           position: 'absolute', top: '50%', left: '35%', width: '30%', height: '4px',
           borderBottom: '2px dotted rgba(0, 255, 204, 0.5)', transform: 'translateY(-50%)', zIndex: 5,
-          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.3s ease-out'
+          // BULLETPROOF LOGIC: 1 only during 'boot', 0 everywhere else
+          opacity: phase === 'boot' ? 1 : 0, 
+          transition: 'opacity 0.3s ease-out'
         }} />
 
-        {/* Realistic CSS Zipper Handle (Flipped 180 degrees) */}
+        {/* Realistic CSS Zipper Handle (Flipped correctly) */}
         <div ref={zipperPullRef} style={{
           position: 'absolute', top: '50%', left: 0, 
           width: '65px', height: '24px', 
-          display: 'flex', flexDirection: 'row-reverse', // <-- FLIPPED 1: Reverses the order of the blocks
+          display: 'flex', flexDirection: 'row-reverse',
           alignItems: 'center', 
           zIndex: 10, transform: 'translate(35vw, -50%)', marginLeft: '-32px',
-          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.2s'
+          // BULLETPROOF LOGIC: 1 only during 'boot', 0 everywhere else
+          opacity: phase === 'boot' ? 1 : 0, 
+          transition: 'opacity 0.2s ease-out'
         }}>
-          {/* Slider Body (The metal block) */}
           <div style={{ 
             width: '28px', height: '24px', backgroundColor: '#e0e0e0', 
-            borderRadius: '4px 10px 10px 4px', // <-- FLIPPED 2: Curve is now on the right side
-            boxShadow: 'inset -4px 0 0 #fff, inset 4px 0 0 #999, 0 0 20px rgba(0,255,204,0.9)', // Adjusted lighting
+            borderRadius: '4px 10px 10px 4px', 
+            boxShadow: 'inset -4px 0 0 #fff, inset 4px 0 0 #999, 0 0 20px rgba(0,255,204,0.9)', 
             position: 'relative', zIndex: 2
           }} />
-          
-          {/* Pull Tab (The dangling part with the hole) */}
           <div style={{ 
             width: '40px', height: '18px', backgroundColor: 'rgba(5, 15, 25, 0.9)', 
-            border: '2px solid #00ffcc', 
-            borderRadius: '10px 0 0 10px', // <-- FLIPPED 3: Tab curves outward to the left
-            marginRight: '-6px', // <-- FLIPPED 4: Tucks the tab slightly under the metal block
-            position: 'relative', zIndex: 1,
+            border: '2px solid #00ffcc', borderRadius: '10px 0 0 10px', 
+            marginRight: '-6px', position: 'relative', zIndex: 1,
             boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
           }}>
-            {/* The hole inside the tab */}
             <div style={{ position: 'absolute', top: '4px', left: '8px', width: '14px', height: '6px', backgroundColor: 'transparent', border: '1px solid rgba(0,255,204,0.5)', borderRadius: '3px' }} />
           </div>
         </div>
