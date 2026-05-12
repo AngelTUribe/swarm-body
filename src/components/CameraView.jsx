@@ -28,16 +28,18 @@ const CameraView = ({ handsPositionRef }) => {
   }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100%', margin: '0 auto' }}>
+    // We removed the PIP styling and made it full screen
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0 }}>
       <video
         ref={videoRef}
         autoPlay
         playsInline
         style={{
           width: '100%',
-          transform: 'scaleX(-1)', 
-          borderRadius: '10px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+          height: '100%',
+          objectFit: 'cover', // Stretches to fill monitor
+          transform: 'scaleX(-1)', // Mirrored
+          opacity: 0.3 // Dimmed so the 3D hologram still glows!
         }}
       />
     </div>

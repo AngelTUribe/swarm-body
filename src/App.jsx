@@ -1,26 +1,24 @@
 import React, { useRef } from 'react';
 import CameraView from './components/CameraView';
 import Scene from './components/Scene';
-import PortfolioUI from './components/PortfolioUI'; // 1. Import it
+import PortfolioUI from './components/PortfolioUI';
 
 function App() {
   const handsPositionRef = useRef({ landmarks: [] });
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#111', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#050505', overflow: 'hidden' }}>
       
-      {/* 3D Hand Mesh */}
+      {/* 1. Camera in the very back (zIndex 0) */}
+      <CameraView handsPositionRef={handsPositionRef} />
+
+      {/* 2. 3D Hand Mesh in the middle (zIndex 1) */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
         <Scene handsPositionRef={handsPositionRef} />
       </div>
 
-      {/* NEW: 2D Interactive Portfolio Interface */}
+      {/* 3. Interactive UI on top (zIndex 10) */}
       <PortfolioUI handsPositionRef={handsPositionRef} />
-
-      {/* Camera View */}
-      <div style={{ position: 'absolute', top: 20, right: 20, width: '240px', zIndex: 10, borderRadius: '10px', overflow: 'hidden' }}>
-        <CameraView handsPositionRef={handsPositionRef} />
-      </div>
 
     </div>
   );
