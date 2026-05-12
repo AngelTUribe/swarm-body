@@ -9,10 +9,7 @@ const PROJECTS = [
 const PortfolioUI = ({ handsPositionRef }) => {
   const cursor1Ref = useRef(null);
   const cursor2Ref = useRef(null);
-  
-  // Invisible hitboxes for logic
   const topBarRef = useRef(null);
-  const terminateZoneRef = useRef(null);
 
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
@@ -20,13 +17,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
   const state = useRef({
     draggedId: null,
+    dragMode: null, // 'pinch' (from menu) or 'sticky' (from window)
     isExpanded: false, 
-    wasPinching: false, 
-    isDraggingZipper: false,
     zipperX: window.innerWidth * 0.35, 
-    isDraggingExpanded: false,
-    expandedTransform: { x: 0, y: 0 },
-    dragOffsetX: 0, dragOffsetY: 0,
+    isDraggingZipper: false,
     projects: {} 
   });
 
@@ -44,7 +38,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const y = centerY + radius * Math.sin(rad); 
       state.current.projects[p.id] = { origX: x, origY: y, currX: x, currY: y };
     });
-    
     setMounted(true);
   }, []);
 
@@ -57,24 +50,34 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
+      // 1. DUAL HAND TRACKING RESTORED
       if (cursor1Ref.current) cursor1Ref.current.style.opacity = hands[0] ? 1 : 0;
       if (cursor2Ref.current) cursor2Ref.current.style.opacity = hands[1] ? 1 : 0;
 
       let indexX = null; let indexY = null;
-      let activePinchX = null; let activePinchY = null;
       let isPinching = false;
 
-      if (hands[0]) {
-        const thumb = hands[0][4]; const index = hands[0][8];
-        indexX = (1 - index.x) * screenW; indexY = index.y * screenH;
-        const thumbX = (1 - thumb.x) * screenW; const thumbY = thumb.y * screenH;
+      const processHand = (hand, cursorRef) => {
+        if (!hand) return null;
+        const thumb = hand[4]; const index = hand[8];
+        const ix = (1 - index.x) * screenW; const iy = index.y * screenH;
+        const tx = (1 - thumb.x) * screenW; const ty = thumb.y * screenH;
+        
+        if (cursorRef.current) {
+          cursorRef.current.style.transform = `translate(${ix}px, ${iy}px)`;
+          const pinch = Math.hypot(tx - ix, ty - iy) < 40;
+          cursorRef.current.style.backgroundColor = pinch ? '#00ffcc' : 'white';
+          return { ix, iy, pinch };
+        }
+        return null;
+      };
 
-        if (cursor1Ref.current) cursor1Ref.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
+      const hand1 = processHand(hands[0], cursor1Ref);
+      processHand(hands[1], cursor2Ref); // Process hand 2 just for the visual dot
 
-        isPinching = Math.hypot(thumbX - indexX, thumbY - indexY) < 40;
-        if (cursor1Ref.current) cursor1Ref.current.style.backgroundColor = isPinching ? '#00ffcc' : 'white';
-
-        if (isPinching) { activePinchX = indexX; activePinchY = indexY; }
+      if (hand1) {
+        indexX = hand1.ix; indexY = hand1.iy;
+        isPinching = hand1.pinch;
       }
 
       // STREAM DATA TO 3D SCENE
@@ -83,6 +86,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         isExpanded: state.current.isExpanded,
         projects: state.current.projects,
         draggedId: state.current.draggedId,
+        dragMode: state.current.dragMode, // Tells 3D scene if hole is Execute or Incinerate
         screenW, screenH
       };
 
@@ -92,10 +96,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const maskPath = document.getElementById('ar-mask-path');
 
         if (phase === 'boot') {
-          const hoveringZipper = activePinchX > startX - 50 && activePinchX < endX && activePinchY > screenH/2 - 50 && activePinchY < screenH/2 + 50;
+          const hoveringZipper = indexX > startX - 50 && indexX < endX && indexY > screenH/2 - 50 && indexY < screenH/2 + 50;
           if (isPinching && hoveringZipper) state.current.isDraggingZipper = true;
           if (!isPinching) state.current.isDraggingZipper = false;
-          if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(activePinchX, screenW * 0.7)); 
+          if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
         }
 
         const pullProgress = Math.max(0, (state.current.zipperX - startX) / (endX - startX));
@@ -113,101 +117,104 @@ const PortfolioUI = ({ handsPositionRef }) => {
           setPhase('transition'); if (maskPath) maskPath.style.opacity = '0'; 
           setTimeout(() => setPhase('main'), 1200); 
         }
-        state.current.wasPinching = isPinching;
         animationFrameId = requestAnimationFrame(updateLoop); return; 
       }
 
       handsPositionRef.current.zipperState = { phase: 'main' };
 
-      // === NEW: PINCH-FREE EXPANDED WINDOW DRAGGING ===
-      if (state.current.isExpanded) {
-        const topEl = topBarRef.current;
-        const termEl = terminateZoneRef.current;
-
-        if (topEl && termEl && indexX !== null) {
-          const topRect = topEl.getBoundingClientRect();
-          const termRect = termEl.getBoundingClientRect();
-
-          // Latch on purely via Hover (No pinch needed!)
-          const hoveringTop = indexX > topRect.left && indexX < topRect.right && indexY > topRect.top && indexY < topRect.bottom;
-
-          if (hoveringTop && !state.current.isDraggingExpanded) {
-            state.current.isDraggingExpanded = true;
-            state.current.dragOffsetX = indexX - state.current.expandedTransform.x;
-            state.current.dragOffsetY = indexY - state.current.expandedTransform.y;
-            topEl.style.backgroundColor = 'rgba(0, 255, 204, 0.3)'; // Visual feedback
-          }
-
-          if (state.current.isDraggingExpanded) {
-            // Move window with finger
-            state.current.expandedTransform.x = indexX - state.current.dragOffsetX;
-            state.current.expandedTransform.y = indexY - state.current.dragOffsetY;
-
-            // Check if dragged into the Terminate Zone
-            if (indexX > termRect.left && indexX < termRect.right && indexY > termRect.top && indexY < termRect.bottom) {
-              // TERMINATE INSTANTLY
-              setExpandedProject(null);
-              state.current.isExpanded = false;
-              state.current.isDraggingExpanded = false;
-              state.current.expandedTransform = { x: 0, y: 0 };
-            }
-
-            // Drop if hand leaves screen
-            if (!hands[0]) {
-              state.current.isDraggingExpanded = false;
-              state.current.expandedTransform = { x: 0, y: 0 };
-            }
-          } else {
-             topEl.style.backgroundColor = 'rgba(0, 255, 204, 0.05)';
-          }
-        }
-        state.current.wasPinching = isPinching;
-        animationFrameId = requestAnimationFrame(updateLoop); return; 
-      }
-
       // === 3D CUBE DRAG LOGIC ===
       const dropCenterX = screenW / 2;
-      const dropCenterY = screenH * 0.85; // Matches 3D hole position
+      const dropCenterY = screenH * 0.85;
 
-      if (!state.current.draggedId && isPinching && activePinchX !== null) {
-        for (let p of PROJECTS) {
-          const pState = state.current.projects[p.id];
-          // 80px hitbox radius around the cube's screen position
-          if (Math.hypot(activePinchX - pState.currX, activePinchY - pState.currY) < 80) {
-            state.current.draggedId = p.id; break; 
+      // 1. EXPANDED WINDOW: HOVER TO GRAB (No pinch needed!)
+      if (state.current.isExpanded && indexX !== null) {
+        const topEl = topBarRef.current;
+        if (topEl) {
+          const topRect = topEl.getBoundingClientRect();
+          const hoveringTop = indexX > topRect.left && indexX < topRect.right && indexY > topRect.top && indexY < topRect.bottom;
+
+          if (hoveringTop) {
+            // Instantly collapse window back into a sticky cube!
+            state.current.draggedId = expandedProject.id;
+            state.current.dragMode = 'sticky'; 
+            state.current.isExpanded = false;
+            setExpandedProject(null);
+            
+            // Snap cube exactly to index finger
+            state.current.projects[expandedProject.id].currX = indexX;
+            state.current.projects[expandedProject.id].currY = indexY;
           }
         }
       }
 
+      // 2. MENU SLOT: PINCH TO GRAB
+      if (!state.current.isExpanded && !state.current.draggedId && isPinching && indexX !== null) {
+        for (let p of PROJECTS) {
+          const pState = state.current.projects[p.id];
+          if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
+            state.current.draggedId = p.id;
+            state.current.dragMode = 'pinch';
+            break; 
+          }
+        }
+      }
+
+      // 3. MOVE DRAGGED CUBES
       if (state.current.draggedId) {
         const pid = state.current.draggedId;
         const pState = state.current.projects[pid];
+        const distToHole = Math.hypot(pState.currX - dropCenterX, pState.currY - dropCenterY);
 
-        if (isPinching) {
-          // Magnetic Pull to the 3D hole
-          if (Math.hypot(activePinchX - dropCenterX, activePinchY - dropCenterY) < 150) {
-            pState.currX = dropCenterX; pState.currY = dropCenterY;
+        if (state.current.dragMode === 'sticky') {
+          // STICKY MODE (Closing Window): Follows finger without pinch
+          if (indexX !== null) {
+            pState.currX = indexX; pState.currY = indexY;
+            // Magnetic suck into Incinerator Hole
+            if (distToHole < 150) {
+              pState.currX = dropCenterX; pState.currY = dropCenterY;
+              if (distToHole < 50) {
+                // Incinerated! Cube zips back to slot.
+                state.current.draggedId = null;
+                pState.currX = pState.origX; pState.currY = pState.origY;
+              }
+            }
           } else {
-            pState.currX = activePinchX; pState.currY = activePinchY;
-          }
-        } else {
-          // Dropped!
-          state.current.draggedId = null;
-          if (Math.hypot(pState.currX - dropCenterX, pState.currY - dropCenterY) < 100) {
+            // Hand lost track! Re-expand the window safely.
+            state.current.draggedId = null;
             setExpandedProject(PROJECTS.find(p => p.id === pid));
             state.current.isExpanded = true;
+            pState.currX = pState.origX; pState.currY = pState.origY;
           }
-          pState.currX = pState.origX; pState.currY = pState.origY; 
+        } 
+        
+        else if (state.current.dragMode === 'pinch') {
+          // PINCH MODE (Opening from Menu)
+          if (isPinching) {
+            pState.currX = indexX; pState.currY = indexY;
+            // Magnetic suck into Execute Hole
+            if (distToHole < 150) {
+              pState.currX = dropCenterX; pState.currY = dropCenterY;
+            }
+          } else {
+            // Un-pinched!
+            state.current.draggedId = null;
+            if (distToHole < 100) {
+              // Expand!
+              setExpandedProject(PROJECTS.find(p => p.id === pid));
+              state.current.isExpanded = true;
+            }
+            // Send cube back to slot
+            pState.currX = pState.origX; pState.currY = pState.origY; 
+          }
         }
       }
 
-      state.current.wasPinching = isPinching;
       animationFrameId = requestAnimationFrame(updateLoop);
     };
 
     updateLoop();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [mounted, phase]); 
+  }, [mounted, phase, expandedProject]); 
 
   if (!mounted) return null;
 
@@ -229,37 +236,42 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* 2. EXPANDED WINDOW (Pinch-Free Drag) */}
-      {expandedProject && (
-        <div ref={terminateZoneRef} style={{
-          position: 'absolute', bottom: '5%', left: '50%', transform: 'translateX(-50%)', width: '250px', height: '100px',
-          border: '2px dashed #ff0055', borderRadius: '12px', backgroundColor: 'rgba(255, 0, 85, 0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-          color: '#ff0055', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.4rem', letterSpacing: '4px',
-          boxShadow: '0 0 30px rgba(255,0,85,0.4), inset 0 0 20px rgba(255,0,85,0.2)'
-        }}>
-          [ INCINERATOR ]
-        </div>
-      )}
+      {/* NEW: STATIC HTML LABELS OVER THE 3D SLOTS */}
+      {phase === 'main' && PROJECTS.map(p => {
+        const pState = state.current.projects[p.id];
+        if (!pState) return null;
+        return (
+          <div key={`label-${p.id}`} style={{
+            position: 'absolute', left: pState.origX, top: pState.origY - 85, // Hovers just above the slot
+            transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace',
+            fontSize: '0.9rem', textAlign: 'center', pointerEvents: 'none',
+            textShadow: '0 0 15px rgba(0,255,204,0.8)', opacity: state.current.isExpanded ? 0 : 1,
+            transition: 'opacity 0.3s'
+          }}>
+            <span style={{fontWeight:'bold', fontSize:'1.1rem'}}>{p.title}</span><br/>
+            <span style={{fontSize:'0.7rem', color:'#fff'}}>{p.subtitle}</span>
+          </div>
+        )
+      })}
 
+      {/* 2. EXPANDED WINDOW (Hover top bar to shape-shift!) */}
       {expandedProject && (
         <div style={{
           position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', backgroundColor: 'rgba(5, 10, 15, 0.85)', borderRadius: '16px',
           border: '1px solid rgba(0, 255, 204, 0.5)', boxShadow: '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column',
-          transform: `translate(${state.current.expandedTransform.x}px, ${state.current.expandedTransform.y}px)`,
-          transition: state.current.isDraggingExpanded ? 'none' : 'transform 0.3s ease-out'
+          animation: 'fadeIn 0.3s ease-out'
         }}>
-          {/* LATCH ZONE - Hover to grab! */}
+          {/* TOP BAR: Hover here to collapse into a cube */}
           <div ref={topBarRef} style={{ 
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', 
-            borderBottom: '1px solid rgba(0, 255, 204, 0.2)', backgroundColor: 'rgba(0, 255, 204, 0.05)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', transition: 'background-color 0.2s'
+            borderBottom: '1px solid rgba(0, 255, 204, 0.2)', backgroundColor: 'rgba(0, 255, 204, 0.05)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{ width: '12px', height: '12px', backgroundColor: state.current.isDraggingExpanded ? '#ff0055' : '#00ffcc', borderRadius: '50%', boxShadow: `0 0 15px ${state.current.isDraggingExpanded ? '#ff0055' : '#00ffcc'}` }} />
+              <div style={{ width: '12px', height: '12px', backgroundColor: '#00ffcc', borderRadius: '50%', boxShadow: '0 0 15px #00ffcc' }} />
               <span style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '1.4rem', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>{expandedProject.title}</span>
             </div>
-            <div style={{ color: state.current.isDraggingExpanded ? '#ff0055' : '#00ffcc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }}>
-              {state.current.isDraggingExpanded ? '>>> DRAG TO INCINERATOR <<<' : '::: HOVER HERE TO GRAB :::'}
+            <div style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }}>
+              ::: HOVER FINGER HERE TO CLOSE :::
             </div>
           </div>
           <div style={{ flex: 1, padding: '15px', pointerEvents: 'auto' }}>
