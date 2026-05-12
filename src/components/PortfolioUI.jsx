@@ -1,27 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// 1. Add 'url' to your projects (Use real links to your deployed projects later!)
 const PROJECTS = [
-  { id: 'p1', title: 'My Portfolio', subtitle: 'Web Dev', url: 'https://angelturibe.github.io/my-portfolio/' },
-  { id: 'p2', title: 'Swarm Body', subtitle: 'Creative Coding', url: 'https://example.com' },
-  { id: 'p3', title: 'AI Agent', subtitle: 'Machine Learning', url: 'https://example.com' },
+  { id: 'p1', title: 'React Dashboard', subtitle: 'WEB.DEV // 01', url: 'https://example.com' },
+  { id: 'p2', title: 'Swarm Engine', subtitle: 'SYS.RENDER // 02', url: 'https://example.com' },
+  { id: 'p3', title: 'Neural Agent', subtitle: 'AI.LOGIC // 03', url: 'https://example.com' },
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
   const cursor1Ref = useRef(null);
   const cursor2Ref = useRef(null);
   const dropZoneRef = useRef(null);
-  const closeBtnRef = useRef(null); // Ref for the holographic close button
+  const zipperPullRef = useRef(null);
   const projectRefs = useRef({});
 
-  // React state to handle the UI rendering of the expanded window
+  const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
   const [mounted, setMounted] = useState(false);
 
   const state = useRef({
     draggedId: null,
-    isExpanded: false, // Tells the physics loop if a window is open
-    wasPinching: false, // Helps prevent double-clicks
+    isExpanded: false, 
+    wasPinching: false, 
+    lastHandX: null, 
+    isDraggingZipper: false,
+    zipperX: window.innerWidth * 0.1, // Zipper starts at 10% of screen width
     projects: {} 
   });
 
@@ -31,16 +33,17 @@ const PortfolioUI = ({ handsPositionRef }) => {
     const centerX = screenW / 2;
     const centerY = screenH * 0.9; 
     const radius = Math.min(screenW, screenH) * 0.45; 
-
     const angles = [-40, 0, 40]; 
 
     PROJECTS.forEach((p, index) => {
       const rad = (angles[index] - 90) * (Math.PI / 180);
-      const x = centerX + radius * Math.cos(rad) - 75; 
-      const y = centerY + radius * Math.sin(rad) - 40; 
+      const x = centerX + radius * Math.cos(rad) - 80; 
+      const y = centerY + radius * Math.sin(rad) - 45; 
       state.current.projects[p.id] = { origX: x, origY: y, currX: x, currY: y };
     });
-
+    
+    // Set initial zipper position
+    state.current.zipperX = window.innerWidth * 0.1;
     setMounted(true);
   }, []);
 
@@ -59,6 +62,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       let activePinchX = null;
       let activePinchY = null;
       let isPinching = false;
+      let currentHandX = null;
 
       const processHand = (hand, cursorRef) => {
         const thumb = hand[4];
@@ -73,10 +77,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const pinchDist = Math.hypot(thumbX - indexX, thumbY - indexY);
         const handIsPinching = pinchDist < 40;
 
-        if (cursorRef.current) {
-          // If a window is open, make the cursor red to show it's a "Close/Click" cursor
-          cursorRef.current.style.backgroundColor = handIsPinching ? (state.current.isExpanded ? '#ff0055' : '#00ffcc') : 'white';
-        }
+        if (cursorRef.current) cursorRef.current.style.backgroundColor = handIsPinching ? '#00ffcc' : 'white';
+        currentHandX = indexX;
 
         if (handIsPinching) {
           isPinching = true;
@@ -88,26 +90,101 @@ const PortfolioUI = ({ handsPositionRef }) => {
       if (hands[0]) processHand(hands[0], cursor1Ref);
       if (hands[1]) processHand(hands[1], cursor2Ref);
 
-      // --- NEW: IF A PROJECT IS EXPANDED, ONLY CHECK THE CLOSE BUTTON ---
+      // ==========================================
+      // PHASE 1: THE ZIPPER ONBOARDING
+      // ==========================================
+      if (phase === 'boot') {
+        const zipperEl = zipperPullRef.current;
+        const maskPath = document.getElementById('ar-mask-path'); 
+
+        // 1. Check if they grabbed the zipper
+        if (zipperEl) {
+          const rect = zipperEl.getBoundingClientRect();
+          // generous hit box so it's easy to grab
+          const isHoveringZipper = activePinchX > rect.left - 40 && activePinchX < rect.right + 40 &&
+                                   activePinchY > rect.top - 40 && activePinchY < rect.bottom + 40;
+
+          if (isPinching && isHoveringZipper && !state.current.wasPinching) {
+            state.current.isDraggingZipper = true;
+          }
+        }
+
+        if (!isPinching) {
+          state.current.isDraggingZipper = false;
+        }
+
+        // 2. Move the zipper
+        if (state.current.isDraggingZipper) {
+          // Constrain dragging horizontally
+          state.current.zipperX = Math.max(screenW * 0.1, Math.min(activePinchX, screenW * 0.95));
+        }
+
+        // 3. Draw the "Aperture Hole" in the SVG background
+        if (maskPath) {
+          const zx = state.current.zipperX;
+          // Calculate how wide the hole opens vertically based on how far we pulled it
+          const pullProgress = (zx - (screenW * 0.1)) / (screenW * 0.8);
+          const gap = pullProgress * (screenH * 0.6); // Opens up to 60% of screen height
+          
+          // SVG Math: Outer full-screen box + Inner quadratic curve hole
+          const d = `
+            M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z 
+            M 0 ${screenH/2 - gap} 
+            Q ${zx/2} ${screenH/2 - gap} ${zx} ${screenH/2} 
+            Q ${zx/2} ${screenH/2 + gap} 0 ${screenH/2 + gap} Z
+          `;
+          maskPath.setAttribute('d', d);
+        }
+
+        // Update Zipper handle CSS
+        if (zipperEl) {
+          zipperEl.style.transform = `translate(${state.current.zipperX}px, -50%)`;
+        }
+
+        // 4. Win Condition! They unzipped it all the way.
+        if (state.current.zipperX > screenW * 0.85) {
+          setPhase('transition');
+          if (maskPath) maskPath.style.opacity = '0'; // Fade out the remaining black screen
+          setTimeout(() => setPhase('main'), 800);
+        }
+
+        state.current.wasPinching = isPinching;
+        animationFrameId = requestAnimationFrame(updateLoop);
+        return; 
+      }
+
+      // ==========================================
+      // PHASE 2 & 3: MAIN OS LOGIC (Runs exactly as before)
+      // ==========================================
       if (state.current.isExpanded) {
-        if (isPinching && !state.current.wasPinching && closeBtnRef.current) {
-          const rect = closeBtnRef.current.getBoundingClientRect();
-          if (activePinchX > rect.left && activePinchX < rect.right &&
-              activePinchY > rect.top && activePinchY < rect.bottom) {
-            // They pinched the close button!
+        if (currentHandX !== null && state.current.lastHandX !== null) {
+          const velocityX = currentHandX - state.current.lastHandX;
+          if (Math.abs(velocityX) > 100) { 
+            setExpandedProject(null);
+            state.current.isExpanded = false;
+          }
+        }
+        state.current.lastHandX = currentHandX;
+
+        const windowLeft = screenW * 0.1; const windowRight = screenW * 0.9;
+        const windowTop = screenH * 0.1; const windowBottom = screenH * 0.9;
+
+        if (isPinching && !state.current.wasPinching) {
+          const clickedOutside = activePinchX < windowLeft || activePinchX > windowRight || activePinchY < windowTop || activePinchY > windowBottom;
+          if (clickedOutside) {
             setExpandedProject(null);
             state.current.isExpanded = false;
           }
         }
         state.current.wasPinching = isPinching;
         animationFrameId = requestAnimationFrame(updateLoop);
-        return; // Skip the rest of the dragging logic
+        return; 
       }
 
-      // --- STANDARD DRAG LOGIC ---
+      state.current.lastHandX = null; 
       const dropZoneEl = dropZoneRef.current;
 
-      if (dropZoneEl) {
+      if (dropZoneEl && phase === 'main') {
         const dropRect = dropZoneEl.getBoundingClientRect();
         const dropCenterX = dropRect.left + dropRect.width / 2;
         const dropCenterY = dropRect.top + dropRect.height / 2;
@@ -117,82 +194,51 @@ const PortfolioUI = ({ handsPositionRef }) => {
             const el = projectRefs.current[p.id];
             if (!el) continue;
             const rect = el.getBoundingClientRect();
-            
-            if (activePinchX > rect.left && activePinchX < rect.right &&
-                activePinchY > rect.top && activePinchY < rect.bottom) {
-              state.current.draggedId = p.id;
-              break; 
+            if (activePinchX > rect.left && activePinchX < rect.right && activePinchY > rect.top && activePinchY < rect.bottom) {
+              state.current.draggedId = p.id; break; 
             }
           }
         }
 
         let isMagnetized = false;
-
         if (state.current.draggedId) {
           const pid = state.current.draggedId;
           const pState = state.current.projects[pid];
           const el = projectRefs.current[pid];
-          const btnWidth = 150;
-          const btnHeight = 80;
+          const btnW = 160; const btnH = 90;
 
           if (isPinching) {
-            const distToDrop = Math.hypot(activePinchX - dropCenterX, activePinchY - dropCenterY);
-
-            if (distToDrop < 150) {
-              pState.currX = dropCenterX - btnWidth / 2;
-              pState.currY = dropCenterY - btnHeight / 2;
-              isMagnetized = true;
+            const dist = Math.hypot(activePinchX - dropCenterX, activePinchY - dropCenterY);
+            if (dist < 150) {
+              pState.currX = dropCenterX - btnW / 2; pState.currY = dropCenterY - btnH / 2; isMagnetized = true;
             } else {
-              pState.currX = activePinchX - btnWidth / 2;
-              pState.currY = activePinchY - btnHeight / 2;
+              pState.currX = activePinchX - btnW / 2; pState.currY = activePinchY - btnH / 2;
             }
-            el.style.zIndex = 200;
+            el.style.zIndex = 200; el.style.transform = `translate(${pState.currX}px, ${pState.currY}px) scale(1.05)`; 
           } else {
-            // Dropped!
-            state.current.draggedId = null;
-            el.style.zIndex = 10;
-            
-            const distToDrop = Math.hypot(
-              (pState.currX + btnWidth / 2) - dropCenterX,
-              (pState.currY + btnHeight / 2) - dropCenterY
-            );
-
-            if (distToDrop < 100) {
-              // --- NEW: EXPAND THE PROJECT ---
-              const droppedProject = PROJECTS.find(p => p.id === pid);
-              setExpandedProject(droppedProject);
-              state.current.isExpanded = true;
+            state.current.draggedId = null; el.style.zIndex = 10;
+            const dist = Math.hypot((pState.currX + btnW / 2) - dropCenterX, (pState.currY + btnH / 2) - dropCenterY);
+            if (dist < 100) {
+              setExpandedProject(PROJECTS.find(p => p.id === pid)); state.current.isExpanded = true;
             }
-            
-            pState.currX = pState.origX;
-            pState.currY = pState.origY;
-            isMagnetized = false;
+            pState.currX = pState.origX; pState.currY = pState.origY; isMagnetized = false;
           }
         }
 
         if (isMagnetized) {
-          dropZoneEl.style.transform = 'translateX(-50%) scale(1.1)';
-          dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.4)';
-          dropZoneEl.style.boxShadow = '0 0 30px rgba(0, 255, 204, 0.8)';
+          dropZoneEl.style.transform = 'translateX(-50%) scale(1.1)'; dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.4)'; dropZoneEl.style.borderColor = '#fff';
         } else {
-          dropZoneEl.style.transform = 'translateX(-50%) scale(1)';
-          dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.1)';
-          dropZoneEl.style.boxShadow = 'none';
+          dropZoneEl.style.transform = 'translateX(-50%) scale(1)'; dropZoneEl.style.backgroundColor = 'rgba(0, 255, 204, 0.05)'; dropZoneEl.style.borderColor = 'rgba(0, 255, 204, 0.4)';
         }
 
         PROJECTS.forEach(p => {
-          const el = projectRefs.current[p.id];
-          const pState = state.current.projects[p.id];
+          const el = projectRefs.current[p.id]; const pState = state.current.projects[p.id];
           if (el && pState) {
-            el.style.transform = `translate(${pState.currX}px, ${pState.currY}px)`;
-            el.style.transition = state.current.draggedId === p.id ? 'none' : 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-            // Hide cards if a project is expanded
-            el.style.opacity = state.current.isExpanded ? 0 : 1;
-            el.style.pointerEvents = state.current.isExpanded ? 'none' : 'auto';
+            if (state.current.draggedId !== p.id) el.style.transform = `translate(${pState.currX}px, ${pState.currY}px) scale(1)`;
+            el.style.transition = state.current.draggedId === p.id ? 'none' : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            el.style.opacity = state.current.isExpanded ? 0 : 1; el.style.pointerEvents = state.current.isExpanded ? 'none' : 'auto';
           }
         });
-        
-        // Hide drop zone if expanded
         dropZoneEl.style.opacity = state.current.isExpanded ? 0 : 1;
       }
 
@@ -202,72 +248,105 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
     updateLoop();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [mounted]);
+  }, [mounted, phase]); 
 
   if (!mounted) return null;
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 100 }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 10 }}>
       
-      <div ref={dropZoneRef} style={{
-          position: 'absolute', bottom: '20%', left: '50%', transform: 'translateX(-50%)',
-          width: '240px', height: '120px', border: '2px dashed rgba(0, 255, 204, 0.6)', borderRadius: '15px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#00ffcc', fontFamily: 'monospace', fontSize: '1.2rem', letterSpacing: '2px',
-          backgroundColor: 'rgba(0, 255, 204, 0.05)', backdropFilter: 'blur(5px)', transition: 'all 0.2s ease-out'
+      {/* ================================================= */}
+      {/* 1. THE BOOT SCREEN (ZIPPER INTERFACE)             */}
+      {/* ================================================= */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        opacity: phase === 'boot' ? 1 : 0, 
+        pointerEvents: phase === 'boot' ? 'auto' : 'none',
+        transition: 'opacity 0.5s ease-out'
+      }}>
+        
+        {/* Intro Text */}
+        <div style={{ position: 'absolute', top: '20%', width: '100%', textAlign: 'center' }}>
+          <h1 style={{ color: '#fff', fontFamily: 'monospace', fontSize: '2rem', letterSpacing: '8px' }}>
+            SPATIAL.OS LOADED
+          </h1>
+          <p style={{ color: '#00ffcc', fontFamily: 'sans-serif', fontSize: '1.2rem', opacity: 0.8, marginTop: '10px' }}>
+            Pinch the handle and pull right to enter your environment.
+          </p>
+        </div>
+
+        {/* The horizontal track line (the teeth) */}
+        <div style={{
+          position: 'absolute', top: '50%', left: '10%', width: '80%', height: '2px',
+          borderBottom: '2px dashed rgba(0, 255, 204, 0.3)', transform: 'translateY(-50%)', zIndex: 5
+        }} />
+
+        {/* The Zipper Pull */}
+        <div ref={zipperPullRef} style={{
+          position: 'absolute', top: '50%', left: 0, // Left handled by transform in JS
+          width: '60px', height: '80px', backgroundColor: 'rgba(5, 10, 15, 0.9)',
+          border: '2px solid #00ffcc', borderRadius: '12px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 30px rgba(0, 255, 204, 0.5), inset 0 0 15px rgba(0, 255, 204, 0.3)',
+          zIndex: 10, transform: 'translate(10vw, -50%)', // Default starting spot
+          marginLeft: '-30px' // Center it on the finger
         }}>
-        [ DROP PROJECT ]
+          {/* Chevron arrows inside the zipper */}
+          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.5rem', lineHeight: '0.8' }}>&#8250;</span>
+          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.5rem', lineHeight: '0.8' }}>&#8250;</span>
+        </div>
       </div>
 
-      {PROJECTS.map(project => (
-        <div key={project.id} ref={el => projectRefs.current[project.id] = el} 
-          style={{
-            position: 'absolute', top: 0, left: 0, width: '150px', height: '80px', borderRadius: '12px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'sans-serif', color: '#fff', background: 'rgba(10, 20, 30, 0.7)',
-            border: '1px solid rgba(0, 255, 204, 0.3)', boxShadow: '0 8px 32px rgba(0, 255, 204, 0.1)',
-            backdropFilter: 'blur(10px)', zIndex: 10, transition: 'opacity 0.3s ease-out'
+      {/* ================================================= */}
+      {/* 2. THE MAIN UI & EXPANDED WINDOW (UNCHANGED)      */}
+      {/* ================================================= */}
+      <div style={{ opacity: phase === 'main' ? 1 : 0, pointerEvents: phase === 'main' ? 'auto' : 'none', transition: 'opacity 0.8s ease-in' }}>
+        <div ref={dropZoneRef} style={{
+            position: 'absolute', bottom: '15%', left: '50%', transform: 'translateX(-50%)', width: '280px', height: '100px', borderRadius: '12px',
+            border: '2px dashed rgba(0, 255, 204, 0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(5, 10, 15, 0.5)', backdropFilter: 'blur(8px)', transition: 'all 0.2s ease-out'
           }}>
-          <span style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '4px' }}>{project.title}</span>
-          <span style={{ fontSize: '0.75rem', color: '#00ffcc' }}>{project.subtitle}</span>
+          <span style={{ color: '#fff', fontFamily: 'sans-serif', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '3px' }}>EXECUTE</span>
+          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.8rem', marginTop: '5px' }}>[ DROP PROJECT HERE ]</span>
         </div>
-      ))}
 
-      {/* --- NEW: THE EXPANDED PROJECT MODAL --- */}
+        {PROJECTS.map((project) => (
+          <div key={project.id} ref={el => projectRefs.current[project.id] = el} 
+            style={{
+              position: 'absolute', top: 0, left: 0, width: '160px', height: '90px', borderRadius: '8px', padding: '12px',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontFamily: 'sans-serif', color: '#fff', 
+              background: 'linear-gradient(135deg, rgba(15, 30, 45, 0.8) 0%, rgba(5, 10, 15, 0.9) 100%)',
+              borderTop: '2px solid #00ffcc', borderBottom: '2px solid rgba(0, 255, 204, 0.2)',
+              borderLeft: '1px solid rgba(255, 255, 255, 0.1)', borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(10px)', zIndex: 10,
+              transform: `translate(${state.current.projects[project.id]?.origX || 0}px, ${state.current.projects[project.id]?.origY || 0}px) scale(${phase === 'main' ? 1 : 0})`,
+              transition: 'opacity 0.3s ease-out'
+            }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '0.7rem', color: '#00ffcc', fontFamily: 'monospace', letterSpacing: '1px' }}>{project.subtitle}</span>
+              <div style={{ width: '6px', height: '6px', backgroundColor: '#00ffcc', borderRadius: '50%', boxShadow: '0 0 10px #00ffcc' }} />
+            </div>
+            <span style={{ fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', lineHeight: '1.1' }}>{project.title}</span>
+          </div>
+        ))}
+      </div>
+
       {expandedProject && (
         <div style={{
-          position: 'absolute', top: '10%', left: '10%', width: '80%', height: '80%',
-          backgroundColor: 'rgba(5, 10, 15, 0.85)', borderRadius: '20px',
-          border: '1px solid #00ffcc', boxShadow: '0 0 50px rgba(0, 255, 204, 0.3)',
-          backdropFilter: 'blur(15px)', zIndex: 300, display: 'flex', flexDirection: 'column',
-          animation: 'fadeIn 0.3s ease-out'
+          position: 'absolute', top: '10%', left: '10%', width: '80%', height: '80%', backgroundColor: 'rgba(5, 10, 15, 0.85)', borderRadius: '16px',
+          border: '1px solid rgba(0, 255, 204, 0.5)', boxShadow: '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out'
         }}>
-          {/* Top Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid rgba(0, 255, 204, 0.3)' }}>
-            <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '1.5rem', fontWeight: 'bold' }}>
-              {expandedProject.title}
-            </span>
-            
-            {/* Holographic Close Button */}
-            <div ref={closeBtnRef} style={{
-              width: '100px', height: '40px', backgroundColor: 'rgba(255, 0, 85, 0.2)',
-              border: '1px solid #ff0055', borderRadius: '8px', color: '#ff0055',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'sans-serif', fontWeight: 'bold', fontSize: '1.1rem',
-              boxShadow: '0 0 15px rgba(255, 0, 85, 0.4)'
-            }}>
-              PINCH TO CLOSE
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', borderBottom: '1px solid rgba(0, 255, 204, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ width: '12px', height: '12px', backgroundColor: '#00ffcc', borderRadius: '50%', boxShadow: '0 0 15px #00ffcc' }} />
+              <span style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '1.4rem', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>{expandedProject.title}</span>
+            </div>
+            <div style={{ color: '#00ffcc', display: 'flex', alignItems: 'center', fontFamily: 'monospace', fontSize: '0.9rem', opacity: 0.7, border: '1px solid rgba(0,255,204,0.3)', padding: '5px 10px', borderRadius: '4px' }}>
+              &lt;&lt; SWIPE TO DISMISS
             </div>
           </div>
-
-          {/* Iframe Content */}
-          <div style={{ flex: 1, padding: '10px' }}>
-             {/* pointerEvents: 'auto' allows normal mouse scrolling/clicking inside the iframe! */}
-            <iframe 
-              src={expandedProject.url} 
-              style={{ width: '100%', height: '100%', border: 'none', borderRadius: '10px', pointerEvents: 'auto' }}
-              title={expandedProject.title}
-            />
+          <div style={{ flex: 1, padding: '15px' }}>
+            <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', pointerEvents: 'auto', backgroundColor: '#fff' }} title={expandedProject.title} />
           </div>
         </div>
       )}
@@ -279,11 +358,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   );
 };
 
-const cursorStyle = {
-  position: 'absolute', top: 0, left: 0, width: '20px', height: '20px',
-  backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center',
-  marginLeft: '-10px', marginTop: '-10px', transition: 'background-color 0.1s',
-  boxShadow: '0 0 15px rgba(0, 255, 204, 1)'
-};
+const cursorStyle = { position: 'absolute', top: 0, left: 0, width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center', marginLeft: '-10px', marginTop: '-10px', transition: 'background-color 0.1s', boxShadow: '0 0 15px rgba(0, 255, 204, 1)' };
 
 export default PortfolioUI;
