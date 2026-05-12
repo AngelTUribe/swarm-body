@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const PROJECTS = [
-  { id: 'p1', title: 'React Dashboard', subtitle: 'WEB.DEV // 01', url: 'https://example.com' },
-  { id: 'p2', title: 'Swarm Engine', subtitle: 'SYS.RENDER // 02', url: 'https://example.com' },
-  { id: 'p3', title: 'Neural Agent', subtitle: 'AI.LOGIC // 03', url: 'https://example.com' },
+  { id: 'p1', title: 'My Portfolio!', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
+  { id: 'p2', title: 'Swarm Engine', subtitle: 'SYS.RENDER // 02', url: 'https://github.com/AngelTUribe/swarm-body' },
+  { id: 'p3', title: 'My Linkedin', subtitle: 'AI.LOGIC // 03', url: 'https://www.linkedin.com/in/angel-turibe/' },
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
