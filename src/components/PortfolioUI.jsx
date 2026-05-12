@@ -20,7 +20,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
     layout: 'central', 
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
-    readyToExecute: false,
     holeCurrX: window.innerWidth / 2, 
     holeCurrY: window.innerHeight * 0.65,
     holeCentral: { x: 0, y: 0 },
@@ -134,7 +133,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       state.current.holeCurrX += (targetHole.x - state.current.holeCurrX) * 0.1;
       state.current.holeCurrY += (targetHole.y - state.current.holeCurrY) * 0.1;
 
-      // FIX: Manually update the "EXECUTE" label DOM directly for smooth 60fps gliding
       const execLabel = document.getElementById('execute-label');
       if (execLabel) {
         execLabel.style.left = `${state.current.holeCurrX}px`;
@@ -149,7 +147,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         pState.slotCurrX += (targetSlot.x - pState.slotCurrX) * 0.1;
         pState.slotCurrY += (targetSlot.y - pState.slotCurrY) * 0.1;
 
-        // FIX: Manually update the Project text DOM directly for smooth 60fps gliding
         const projectLabel = document.getElementById(`label-${p.id}`);
         if (projectLabel) {
           projectLabel.style.left = `${pState.slotCurrX}px`;
@@ -165,61 +162,67 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       });
 
-      // === PINCH DETECTION ===
+      // === PINCH DETECTION (Initial Grab) ===
       if (!state.current.draggedId && isPinching && indexX !== null) {
         for (let p of PROJECTS) {
           const pState = state.current.projects[p.id];
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
-            state.current.readyToExecute = false;
             break; 
           }
         }
       }
 
-      // === DRAG & SNAP LOGIC ===
-      if (state.current.draggedId) {
+      // === STICKY DRAG & MAGNETIC SNAP LOGIC ===
+      if (state.current.draggedId && indexX !== null) {
         const pid = state.current.draggedId;
         const pState = state.current.projects[pid];
         
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
+        // 1. The cube ALWAYS follows the finger, ignoring the pinch state!
+        pState.currX = indexX;
+        pState.currY = indexY;
+
+        const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
+        const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
+        const dropThreshold = 120; // 120px radius to trigger the magnetic drop
+
         if (state.current.layout === 'central') {
-          const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
-          if (isPinching) {
-            if (distToHole < 150) {
-              isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; state.current.readyToExecute = true; 
-            } else {
-              pState.currX = indexX; pState.currY = indexY; if (distToHole > 250) state.current.readyToExecute = false; 
-            }
-          } else {
-            state.current.draggedId = null;
-            if (state.current.readyToExecute || distToHole < 150) {
-              state.current.layout = 'split';
-              state.current.activeId = pid;
-              setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
-            }
-            state.current.readyToExecute = false;
+          if (distToHole < dropThreshold) {
+            // AUTO-DROP: Execute
+            isSnapped = true; 
+            pState.currX = activeHole.x; 
+            pState.currY = activeHole.y; 
+            state.current.draggedId = null; // Let go of the cube
+            state.current.layout = 'split';
+            state.current.activeId = pid;
+            setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
+          } else if (distToSlot < dropThreshold) {
+            // AUTO-DROP: Put it back (Cancel)
+            isSnapped = true; 
+            pState.currX = activeSlot.x; 
+            pState.currY = activeSlot.y; 
+            state.current.draggedId = null; // Let go of the cube
           }
         } 
-        
         else if (state.current.layout === 'split') {
-          const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-          if (isPinching) {
-            if (distToSlot < 150) {
-              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; state.current.readyToExecute = true; 
-            } else {
-              pState.currX = indexX; pState.currY = indexY; if (distToSlot > 250) state.current.readyToExecute = false; 
-            }
-          } else {
-            state.current.draggedId = null;
-            if (state.current.readyToExecute || distToSlot < 150) {
-              setExpandedProject(null); 
-              state.current.layout = 'central';
-              state.current.activeId = null;
-            }
-            state.current.readyToExecute = false;
+          if (distToSlot < dropThreshold) {
+            // AUTO-DROP: Close Window
+            isSnapped = true; 
+            pState.currX = activeSlot.x; 
+            pState.currY = activeSlot.y; 
+            state.current.draggedId = null; // Let go of the cube
+            setExpandedProject(null); 
+            state.current.layout = 'central';
+            state.current.activeId = null;
+          } else if (distToHole < dropThreshold) {
+             // AUTO-DROP: Put it back (Cancel)
+             isSnapped = true; 
+             pState.currX = activeHole.x; 
+             pState.currY = activeHole.y; 
+             state.current.draggedId = null; // Let go of the cube
           }
         }
       }
@@ -255,7 +258,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* DYNAMIC LABELS (Added IDs so the physics loop can drive them) */}
+      {/* DYNAMIC LABELS */}
       {phase === 'main' && PROJECTS.map(p => {
         const pState = state.current.projects[p.id];
         if (pState.slotCurrX === undefined) return null;
@@ -269,7 +272,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         )
       })}
 
-      {/* DYNAMIC EXECUTE LABEL (Added ID) */}
+      {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
         <div id="execute-label" style={{ 
           position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, 
