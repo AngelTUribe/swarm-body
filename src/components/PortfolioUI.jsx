@@ -276,7 +276,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
           backgroundColor: 'rgba(5, 10, 15, 0.7)', backdropFilter: 'blur(15px)',
           border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '16px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,255,204,0.1)',
-          opacity: phase === 'transition' ? 0 : 1, transition: 'opacity 0.3s ease-out'
+          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.3s ease-out'
         }}>
           <h2 style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1.6rem', letterSpacing: '5px', margin: '0 0 15px 0' }}>
             SPATIAL HAND ENVIRONMENT
@@ -291,7 +291,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div style={{
           position: 'absolute', top: '50%', left: '35%', width: '30%', height: '4px',
           borderBottom: '2px dotted rgba(0, 255, 204, 0.5)', transform: 'translateY(-50%)', zIndex: 5,
-          opacity: phase === 'transition' ? 0 : 1, transition: 'opacity 0.3s ease-out'
+          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.3s ease-out'
         }} />
 
         {/* Realistic CSS Zipper Handle (Flipped 180 degrees) */}
@@ -301,7 +301,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
           display: 'flex', flexDirection: 'row-reverse', // <-- FLIPPED 1: Reverses the order of the blocks
           alignItems: 'center', 
           zIndex: 10, transform: 'translate(35vw, -50%)', marginLeft: '-32px',
-          opacity: phase === 'transition' ? 0 : 1, transition: 'opacity 0.2s'
+          opacity: phase === 'boot' ? 0 : 1, transition: 'opacity 0.2s'
         }}>
           {/* Slider Body (The metal block) */}
           <div style={{ 
