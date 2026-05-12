@@ -21,7 +21,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     isExpanded: false, 
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
-    readyToExecute: false, // NEW: Magnetic Latch State
+    readyToExecute: false,
     projects: {} 
   });
 
@@ -140,7 +140,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       }
 
-      // === NEW SNAPPING LOGIC ===
       if (state.current.draggedId) {
         const pState = state.current.projects[state.current.draggedId];
 
@@ -149,31 +148,31 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (distToOrig < 150) {
             isSnapped = true; 
             pState.currX = pState.origX; pState.currY = pState.origY;
-            if (distToOrig < 80) state.current.draggedId = null; // Auto drop if close enough
+            if (distToOrig < 80) state.current.draggedId = null; 
           } else {
             pState.currX = indexX; pState.currY = indexY;
           }
         } else {
-          // Calculate distance from HAND to HOLE
           const distToHole = Math.hypot(indexX - dropCenterX, indexY - dropCenterY);
           
           if (isPinching) {
             if (distToHole < 150) {
               isSnapped = true; 
               pState.currX = dropCenterX; pState.currY = dropCenterY;
-              state.current.readyToExecute = true; // LATCHED
+              state.current.readyToExecute = true; 
             } else {
               pState.currX = indexX; pState.currY = indexY;
-              if (distToHole > 250) state.current.readyToExecute = false; // Unlatch if pulled far away
+              if (distToHole > 250) state.current.readyToExecute = false; 
             }
           } else {
-            // Pinch Released! Did we release while latched?
+            // FIX IS HERE: Grab the ID before we wipe it!
+            const droppedId = state.current.draggedId;
             state.current.draggedId = null;
+            
             if (state.current.readyToExecute || distToHole < 150) {
-              setExpandedProject(PROJECTS.find(p => p.id === state.current.draggedId));
+              setExpandedProject(PROJECTS.find(p => p.id === droppedId));
               state.current.isExpanded = true;
             }
-            // Send back to slot, reset state
             pState.currX = pState.origX; pState.currY = pState.origY;
             state.current.readyToExecute = false;
           }
