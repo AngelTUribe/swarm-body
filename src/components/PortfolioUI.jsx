@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const PROJECTS = [
-  { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
+  { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://example.com' },
   { id: 'p2', title: 'Engineering Resume', subtitle: 'DOC.SYS // 02', url: 'resume.pdf' },
   { id: 'p3', title: 'Spatial Game', subtitle: 'SYS.RENDER // 03', url: 'about:blank' },
 ];
@@ -18,7 +18,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
     draggedId: null,
     activeId: null, 
     layout: 'central', 
-    hasLeftOrigin: false, // NEW: Prevents instant auto-dropping!
+    hasLeftOrigin: false, 
+    activeHandId: null, // NEW: Locks onto the hand that grabbed the object
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
     holeCurrX: window.innerWidth / 2, 
@@ -68,44 +69,69 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      if (cursor1Ref.current) cursor1Ref.current.style.opacity = hands[0] ? 1 : 0;
-      if (cursor2Ref.current) cursor2Ref.current.style.opacity = hands[1] ? 1 : 0;
-
-      let indexX = null; let indexY = null;
-      let isPinching = false;
-      let isSnapped = false; 
-
-      const processHand = (hand, cursorRef) => {
+      // 1. Process Hands and assign an ID
+      const processHand = (hand, cursorRef, handId) => {
         if (!hand) return null;
         const thumb = hand[4]; const index = hand[8];
         const ix = (1 - index.x) * screenW; const iy = index.y * screenH;
         const tx = (1 - thumb.x) * screenW; const ty = thumb.y * screenH;
+        const pinch = Math.hypot(tx - ix, ty - iy) < 45;
+        
         if (cursorRef.current) {
           cursorRef.current.style.transform = `translate(${ix}px, ${iy}px)`;
-          const pinch = Math.hypot(tx - ix, ty - iy) < 45;
           cursorRef.current.style.backgroundColor = pinch ? '#00ffcc' : 'white';
-          return { ix, iy, pinch };
         }
-        return null;
+        return { ix, iy, pinch, id: handId };
       };
 
-      const hand1 = processHand(hands[0], cursor1Ref);
-      const hand2 = processHand(hands[1], cursor2Ref);
-      let activeHand = (hand1?.pinch) ? hand1 : (hand2?.pinch ? hand2 : (hand1 || hand2));
+      const hand1 = processHand(hands[0], cursor1Ref, 1);
+      const hand2 = processHand(hands[1], cursor2Ref, 2);
+
+      const isDragging = state.current.draggedId || state.current.isDraggingZipper;
+
+      // 2. Hand Lock Visuals (Hide the inactive cursor)
+      let op1 = hands[0] ? 1 : 0;
+      let op2 = hands[1] ? 1 : 0;
       
-      if (activeHand) {
-        indexX = activeHand.ix; indexY = activeHand.iy;
-        isPinching = activeHand.pinch;
+      if (isDragging && state.current.activeHandId) {
+        if (state.current.activeHandId === 1) op2 = 0;
+        if (state.current.activeHandId === 2) op1 = 0;
       }
 
+      if (cursor1Ref.current) cursor1Ref.current.style.opacity = op1;
+      if (cursor2Ref.current) cursor2Ref.current.style.opacity = op2;
+
+      // 3. Hand Lock Logic (Ignore the inactive hand's coordinates)
+      let activeHand = null;
+      if (isDragging && state.current.activeHandId) {
+        activeHand = (state.current.activeHandId === 1) ? hand1 : hand2;
+      } else {
+        if (hand1?.pinch) activeHand = hand1;
+        else if (hand2?.pinch) activeHand = hand2;
+        else activeHand = hand1 || hand2;
+      }
+
+      let indexX = null; let indexY = null; let isPinching = false;
+      if (activeHand) {
+        indexX = activeHand.ix; indexY = activeHand.iy; isPinching = activeHand.pinch;
+      }
+
+      // === BOOT PHASE ===
       if (phase === 'boot' || phase === 'transition') {
         const startX = screenW * 0.35; const endX = screenW * 0.65;
         const maskPath = document.getElementById('ar-mask-path');
 
         if (phase === 'boot') {
           const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
-          if (isPinching && hoveringZipper) state.current.isDraggingZipper = true;
-          if (!isPinching) state.current.isDraggingZipper = false;
+          
+          if (isPinching && hoveringZipper && !state.current.isDraggingZipper) {
+            state.current.isDraggingZipper = true;
+            state.current.activeHandId = activeHand.id; // Lock onto the hand pulling the zipper!
+          }
+          if (!isPinching) {
+            state.current.isDraggingZipper = false;
+            if (!state.current.draggedId) state.current.activeHandId = null; // Release the lock
+          }
           if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
         }
 
@@ -130,6 +156,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       handsPositionRef.current.zipperState = { phase: 'main' };
 
       // === UNIFIED PHYSICS GLIDE ===
+      let isSnapped = false; 
       const targetHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
       state.current.holeCurrX += (targetHole.x - state.current.holeCurrX) * 0.1;
       state.current.holeCurrY += (targetHole.y - state.current.holeCurrY) * 0.1;
@@ -169,7 +196,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
           const pState = state.current.projects[p.id];
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
-            state.current.hasLeftOrigin = false; // We just grabbed it, lock the drop zones!
+            state.current.hasLeftOrigin = false; 
+            state.current.activeHandId = activeHand.id; // Lock onto the hand that grabbed the cube!
             break; 
           }
         }
@@ -183,43 +211,39 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        // Always stick to the finger
+        // Always stick to the active locked finger
         pState.currX = indexX;
         pState.currY = indexY;
 
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const dropThreshold = 120; // Radius to snap in
+        const dropThreshold = 120; 
 
-        // 1. Breakaway Logic: Have we pulled it out of its starting socket?
         if (!state.current.hasLeftOrigin) {
           if (state.current.layout === 'central' && distToSlot > 150) state.current.hasLeftOrigin = true;
           if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
         }
 
-        // 2. Drop Logic: Only runs if we've successfully pulled it out
         if (state.current.hasLeftOrigin) {
           if (state.current.layout === 'central') {
             if (distToHole < dropThreshold) {
-              // AUTO-DROP: Execute
               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
-              state.current.draggedId = null; state.current.layout = 'split'; state.current.activeId = pid;
+              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
+              state.current.layout = 'split'; state.current.activeId = pid;
               setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
             } else if (distToSlot < dropThreshold) {
-              // AUTO-DROP: Put it back (Cancel)
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
-              state.current.draggedId = null; 
+              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
             }
           } 
           else if (state.current.layout === 'split') {
             if (distToSlot < dropThreshold) {
-              // AUTO-DROP: Close Window
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
-              state.current.draggedId = null; setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
+              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
+              setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
             } else if (distToHole < dropThreshold) {
-               // AUTO-DROP: Put it back (Cancel)
                isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
-               state.current.draggedId = null; 
+               state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
             }
           }
         }
