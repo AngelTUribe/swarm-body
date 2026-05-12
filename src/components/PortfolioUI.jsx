@@ -24,25 +24,27 @@ const PortfolioUI = ({ handsPositionRef }) => {
   // Force a re-render once just to make sure DOM refs are attached
   const [mounted, setMounted] = useState(false);
 
-  // 2. Calculate the Spatial Arc on load
+ // 2. Calculate the Spatial Arc on load
   useEffect(() => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
     
     const centerX = screenW / 2;
-    const centerY = screenH * 0.7; // The anchor point is low, so the arc goes over your head
-    const radius = screenW * 0.35; // How wide the circle is
+    // FIX 1: Push the anchor point almost to the very bottom of the screen
+    const centerY = screenH * 0.9; 
+    
+    // FIX 2: Clamp the radius. We use Math.min so it looks at whichever 
+    // is smaller (width or height) and bases the circle on that.
+    const radius = Math.min(screenW, screenH) * 0.45; 
 
     // Angles for the 3 cards: Left, Center, Right (-40°, 0°, 40°)
     const angles = [-40, 0, 40]; 
 
     PROJECTS.forEach((p, index) => {
-      // Convert degrees to radians (subtracting 90 so 0 degrees is straight UP)
       const rad = (angles[index] - 90) * (Math.PI / 180);
       
-      // Arc Math!
-      const x = centerX + radius * Math.cos(rad) - 75; // -75 centers the 150px wide card
-      const y = centerY + radius * Math.sin(rad) - 40; // -40 centers the 80px tall card
+      const x = centerX + radius * Math.cos(rad) - 75; 
+      const y = centerY + radius * Math.sin(rad) - 40; 
       
       state.current.projects[p.id] = { origX: x, origY: y, currX: x, currY: y };
     });
