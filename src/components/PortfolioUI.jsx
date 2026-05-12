@@ -18,6 +18,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     draggedId: null,
     activeId: null, 
     layout: 'central', 
+    hasLeftOrigin: false, // NEW: Prevents instant auto-dropping!
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
     holeCurrX: window.innerWidth / 2, 
@@ -168,6 +169,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
           const pState = state.current.projects[p.id];
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
+            state.current.hasLeftOrigin = false; // We just grabbed it, lock the drop zones!
             break; 
           }
         }
@@ -181,48 +183,44 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        // 1. The cube ALWAYS follows the finger, ignoring the pinch state!
+        // Always stick to the finger
         pState.currX = indexX;
         pState.currY = indexY;
 
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const dropThreshold = 120; // 120px radius to trigger the magnetic drop
+        const dropThreshold = 120; // Radius to snap in
 
-        if (state.current.layout === 'central') {
-          if (distToHole < dropThreshold) {
-            // AUTO-DROP: Execute
-            isSnapped = true; 
-            pState.currX = activeHole.x; 
-            pState.currY = activeHole.y; 
-            state.current.draggedId = null; // Let go of the cube
-            state.current.layout = 'split';
-            state.current.activeId = pid;
-            setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
-          } else if (distToSlot < dropThreshold) {
-            // AUTO-DROP: Put it back (Cancel)
-            isSnapped = true; 
-            pState.currX = activeSlot.x; 
-            pState.currY = activeSlot.y; 
-            state.current.draggedId = null; // Let go of the cube
-          }
-        } 
-        else if (state.current.layout === 'split') {
-          if (distToSlot < dropThreshold) {
-            // AUTO-DROP: Close Window
-            isSnapped = true; 
-            pState.currX = activeSlot.x; 
-            pState.currY = activeSlot.y; 
-            state.current.draggedId = null; // Let go of the cube
-            setExpandedProject(null); 
-            state.current.layout = 'central';
-            state.current.activeId = null;
-          } else if (distToHole < dropThreshold) {
-             // AUTO-DROP: Put it back (Cancel)
-             isSnapped = true; 
-             pState.currX = activeHole.x; 
-             pState.currY = activeHole.y; 
-             state.current.draggedId = null; // Let go of the cube
+        // 1. Breakaway Logic: Have we pulled it out of its starting socket?
+        if (!state.current.hasLeftOrigin) {
+          if (state.current.layout === 'central' && distToSlot > 150) state.current.hasLeftOrigin = true;
+          if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
+        }
+
+        // 2. Drop Logic: Only runs if we've successfully pulled it out
+        if (state.current.hasLeftOrigin) {
+          if (state.current.layout === 'central') {
+            if (distToHole < dropThreshold) {
+              // AUTO-DROP: Execute
+              isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
+              state.current.draggedId = null; state.current.layout = 'split'; state.current.activeId = pid;
+              setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
+            } else if (distToSlot < dropThreshold) {
+              // AUTO-DROP: Put it back (Cancel)
+              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
+              state.current.draggedId = null; 
+            }
+          } 
+          else if (state.current.layout === 'split') {
+            if (distToSlot < dropThreshold) {
+              // AUTO-DROP: Close Window
+              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
+              state.current.draggedId = null; setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
+            } else if (distToHole < dropThreshold) {
+               // AUTO-DROP: Put it back (Cancel)
+               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
+               state.current.draggedId = null; 
+            }
           }
         }
       }
