@@ -294,30 +294,34 @@ const PortfolioUI = ({ handsPositionRef }) => {
           opacity: phase === 'transition' ? 0 : 1, transition: 'opacity 0.3s ease-out'
         }} />
 
-        {/* Realistic CSS Zipper Handle (Rotated 90 degrees horizontally) */}
+        {/* Realistic CSS Zipper Handle (Flipped 180 degrees) */}
         <div ref={zipperPullRef} style={{
           position: 'absolute', top: '50%', left: 0, 
-          width: '65px', height: '24px', // Flipped dimensions
-          display: 'flex', flexDirection: 'row', alignItems: 'center', // Row instead of column
+          width: '65px', height: '24px', 
+          display: 'flex', flexDirection: 'row-reverse', // <-- FLIPPED 1: Reverses the order of the blocks
+          alignItems: 'center', 
           zIndex: 10, transform: 'translate(35vw, -50%)', marginLeft: '-32px',
           opacity: phase === 'transition' ? 0 : 1, transition: 'opacity 0.2s'
         }}>
           {/* Slider Body (The metal block) */}
           <div style={{ 
             width: '28px', height: '24px', backgroundColor: '#e0e0e0', 
-            borderRadius: '10px 4px 4px 10px', 
-            boxShadow: 'inset 4px 0 0 #fff, inset -4px 0 0 #999, 0 0 20px rgba(0,255,204,0.9)',
+            borderRadius: '4px 10px 10px 4px', // <-- FLIPPED 2: Curve is now on the right side
+            boxShadow: 'inset -4px 0 0 #fff, inset 4px 0 0 #999, 0 0 20px rgba(0,255,204,0.9)', // Adjusted lighting
             position: 'relative', zIndex: 2
           }} />
           
           {/* Pull Tab (The dangling part with the hole) */}
           <div style={{ 
             width: '40px', height: '18px', backgroundColor: 'rgba(5, 15, 25, 0.9)', 
-            border: '2px solid #00ffcc', borderRadius: '10px 10px 10px 0', 
-            marginLeft: '-6px', position: 'relative', zIndex: 1,
+            border: '2px solid #00ffcc', 
+            borderRadius: '10px 0 0 10px', // <-- FLIPPED 3: Tab curves outward to the left
+            marginRight: '-6px', // <-- FLIPPED 4: Tucks the tab slightly under the metal block
+            position: 'relative', zIndex: 1,
             boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
           }}>
-            <div style={{ position: 'absolute', top: '4px', right: '8px', width: '14px', height: '6px', backgroundColor: 'transparent', border: '1px solid rgba(0,255,204,0.5)', borderRadius: '3px' }} />
+            {/* The hole inside the tab */}
+            <div style={{ position: 'absolute', top: '4px', left: '8px', width: '14px', height: '6px', backgroundColor: 'transparent', border: '1px solid rgba(0,255,204,0.5)', borderRadius: '3px' }} />
           </div>
         </div>
       </div>
