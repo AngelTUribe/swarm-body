@@ -43,7 +43,12 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const sx = screenW * 0.15;
       const sy = screenH * 0.3 + (index * screenH * 0.2); 
 
-      state.current.projects[p.id] = { central: { x: cx, y: cy }, split: { x: sx, y: sy }, currX: cx, currY: cy, slotCurrX: cx, slotCurrY: cy };
+      // Added cooldownUntil to the initial state
+      state.current.projects[p.id] = { 
+        central: { x: cx, y: cy }, split: { x: sx, y: sy }, 
+        currX: cx, currY: cy, slotCurrX: cx, slotCurrY: cy,
+        cooldownUntil: 0 
+      };
     });
     setMounted(true);
   }, []);
@@ -74,12 +79,11 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (dist < minDist) { minDist = dist; bestHand = h; }
         });
 
-        // THE FIX: Only grab the closest hand if it's actually near the last known location (< 20% of screen)
         if (bestHand && minDist < 0.2) {
           activeHand = bestHand;
           activeHandMemory.current.lostFrames = 0;
         } else {
-          activeHand = null; // Triggers ghost buffer instead of index swapping
+          activeHand = null; 
         }
       } else if (hands.length > 0) {
         activeHand = hands[0];
@@ -196,9 +200,14 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       });
 
+      // === PINCH DETECTION WITH COOLDOWN ===
       if (!state.current.draggedId && isPinching && indexX !== null) {
         for (let p of PROJECTS) {
           const pState = state.current.projects[p.id];
+          
+          // REJECT THE GRAB IF IT IS CURRENTLY COOLING DOWN
+          if (Date.now() < pState.cooldownUntil) continue;
+
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
             state.current.hasLeftOrigin = false; 
@@ -233,17 +242,21 @@ const PortfolioUI = ({ handsPositionRef }) => {
             if (distToHole < dropThreshold) {
               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
               state.current.layout = 'split'; state.current.activeId = pid;
+              pState.cooldownUntil = Date.now() + 1500; // <--- 1.5 SEC DROP COOLDOWN
               setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
             } else if (distToSlot < dropThreshold) {
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
+              pState.cooldownUntil = Date.now() + 1500; // <--- 1.5 SEC DROP COOLDOWN
             }
           } 
           else if (state.current.layout === 'split') {
             if (distToSlot < dropThreshold) {
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
               setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
+              pState.cooldownUntil = Date.now() + 1500; // <--- 1.5 SEC DROP COOLDOWN
             } else if (distToHole < dropThreshold) {
                isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
+               pState.cooldownUntil = Date.now() + 1500; // <--- 1.5 SEC DROP COOLDOWN
             }
           }
         }
@@ -297,9 +310,9 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-      {/* EXPANDED WINDOW */}
+      {/* EXPANDED WINDOW - SHRUNK AND CENTERED */}
       {expandedProject && (
-        <div style={{ position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '50vw', height: '70vh', backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out' }}>
           <div ref={topBarRef} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none', borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0', backdropFilter: 'blur(10px)', pointerEvents: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` }} />
