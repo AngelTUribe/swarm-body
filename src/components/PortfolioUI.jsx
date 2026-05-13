@@ -7,9 +7,12 @@ const PROJECTS = [
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
-  const cursor1Ref = useRef(null);
-  const cursor2Ref = useRef(null);
+  // We only need ONE cursor now
+  const cursorRef = useRef(null);
   const topBarRef = useRef(null);
+  
+  // THE SPATIAL LOCK MEMORY
+  const activeHandMemory = useRef({ position: null, locked: false });
 
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
@@ -20,7 +23,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
     activeId: null, 
     layout: 'central', 
     hasLeftOrigin: false, 
-    activeHandId: null, // NEW: Locks onto the hand that grabbed the object
     zipperX: window.innerWidth * 0.35, 
     isDraggingZipper: false,
     holeCurrX: window.innerWidth / 2, 
@@ -33,7 +35,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   useEffect(() => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
-    
     const centerY = screenH * 0.65; 
     const radius = Math.min(screenW, screenH) * 0.4; 
     const angles = [-35, 0, 35]; 
@@ -47,15 +48,12 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const rad = (angles[index] - 90) * (Math.PI / 180);
       const cx = (screenW / 2) + radius * Math.cos(rad); 
       const cy = centerY + radius * Math.sin(rad); 
-      
       const sx = screenW * 0.15;
       const sy = screenH * 0.3 + (index * screenH * 0.2); 
 
       state.current.projects[p.id] = { 
-        central: { x: cx, y: cy }, 
-        split: { x: sx, y: sy }, 
-        currX: cx, currY: cy,
-        slotCurrX: cx, slotCurrY: cy 
+        central: { x: cx, y: cy }, split: { x: sx, y: sy }, 
+        currX: cx, currY: cy, slotCurrX: cx, slotCurrY: cy 
       };
     });
     setMounted(true);
@@ -70,51 +68,52 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      // 1. Process Hands and assign an ID
-      const processHand = (hand, cursorRef, handId) => {
-        if (!hand) return null;
-        const thumb = hand[4]; const index = hand[8];
-        const ix = (1 - index.x) * screenW; const iy = index.y * screenH;
-        const tx = (1 - thumb.x) * screenW; const ty = thumb.y * screenH;
-        const pinch = Math.hypot(tx - ix, ty - iy) < 45;
-        
-        if (cursorRef.current) {
-          cursorRef.current.style.transform = `translate(${ix}px, ${iy}px)`;
-          cursorRef.current.style.backgroundColor = pinch ? '#00ffcc' : 'white';
-        }
-        return { ix, iy, pinch, id: handId };
-      };
-
-      const hand1 = processHand(hands[0], cursor1Ref, 1);
-      const hand2 = processHand(hands[1], cursor2Ref, 2);
-
-      const isDragging = state.current.draggedId || state.current.isDraggingZipper;
-
-      // 2. Hand Lock Visuals (Hide the inactive cursor)
-      let op1 = hands[0] ? 1 : 0;
-      let op2 = hands[1] ? 1 : 0;
-      
-      if (isDragging && state.current.activeHandId) {
-        if (state.current.activeHandId === 1) op2 = 0;
-        if (state.current.activeHandId === 2) op1 = 0;
-      }
-
-      if (cursor1Ref.current) cursor1Ref.current.style.opacity = op1;
-      if (cursor2Ref.current) cursor2Ref.current.style.opacity = op2;
-
-      // 3. Hand Lock Logic (Ignore the inactive hand's coordinates)
+      // === THE SPATIAL HAND LOCK ENGINE ===
       let activeHand = null;
-      if (isDragging && state.current.activeHandId) {
-        activeHand = (state.current.activeHandId === 1) ? hand1 : hand2;
+
+      if (hands.length === 0) {
+        activeHandMemory.current.locked = false;
+        activeHandMemory.current.position = null;
+      } else if (hands.length === 1) {
+        activeHand = hands[0];
+        activeHandMemory.current.locked = true;
+        activeHandMemory.current.position = activeHand[8]; 
       } else {
-        if (hand1?.pinch) activeHand = hand1;
-        else if (hand2?.pinch) activeHand = hand2;
-        else activeHand = hand1 || hand2;
+        if (!activeHandMemory.current.locked || !activeHandMemory.current.position) {
+          activeHand = hands[0];
+          activeHandMemory.current.locked = true;
+        } else {
+          const lastPos = activeHandMemory.current.position;
+          let closestHand = hands[0];
+          let minDist = Infinity;
+          hands.forEach(h => {
+            if(!h[8]) return;
+            const dist = Math.hypot(h[8].x - lastPos.x, h[8].y - lastPos.y);
+            if (dist < minDist) { minDist = dist; closestHand = h; }
+          });
+          activeHand = closestHand;
+        }
+        if(activeHand && activeHand[8]) activeHandMemory.current.position = activeHand[8];
       }
 
       let indexX = null; let indexY = null; let isPinching = false;
-      if (activeHand) {
-        indexX = activeHand.ix; indexY = activeHand.iy; isPinching = activeHand.pinch;
+
+      // Update the single cursor
+      if (activeHand && activeHand[8] && activeHand[4]) {
+        const thumb = activeHand[4]; const index = activeHand[8];
+        indexX = (1 - index.x) * screenW; 
+        indexY = index.y * screenH;
+        const tx = (1 - thumb.x) * screenW; 
+        const ty = thumb.y * screenH;
+        isPinching = Math.hypot(tx - indexX, ty - indexY) < 45;
+        
+        if (cursorRef.current) {
+          cursorRef.current.style.opacity = 1;
+          cursorRef.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
+          cursorRef.current.style.backgroundColor = isPinching ? '#00ffcc' : 'white';
+        }
+      } else {
+        if (cursorRef.current) cursorRef.current.style.opacity = 0;
       }
 
       // === BOOT PHASE ===
@@ -122,17 +121,12 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const startX = screenW * 0.35; const endX = screenW * 0.65;
         const maskPath = document.getElementById('ar-mask-path');
 
-        if (phase === 'boot') {
+        if (phase === 'boot' && indexX !== null) {
           const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
           
-          if (isPinching && hoveringZipper && !state.current.isDraggingZipper) {
-            state.current.isDraggingZipper = true;
-            state.current.activeHandId = activeHand.id; // Lock onto the hand pulling the zipper!
-          }
-          if (!isPinching) {
-            state.current.isDraggingZipper = false;
-            if (!state.current.draggedId) state.current.activeHandId = null; // Release the lock
-          }
+          if (isPinching && hoveringZipper) state.current.isDraggingZipper = true;
+          if (!isPinching) state.current.isDraggingZipper = false;
+          
           if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
         }
 
@@ -177,15 +171,11 @@ const PortfolioUI = ({ handsPositionRef }) => {
         pState.slotCurrY += (targetSlot.y - pState.slotCurrY) * 0.1;
 
         const projectLabel = document.getElementById(`label-${p.id}`);
-        if (projectLabel) {
-          projectLabel.style.left = `${pState.slotCurrX}px`;
-          projectLabel.style.top = `${pState.slotCurrY - 80}px`;
-        }
+        if (projectLabel) projectLabel.style.left = `${pState.slotCurrX}px`; projectLabel.style.top = `${pState.slotCurrY - 80}px`;
 
         if (state.current.draggedId !== p.id) {
           let targetX = (state.current.activeId === p.id) ? targetHole.x : targetSlot.x;
           let targetY = (state.current.activeId === p.id) ? targetHole.y : targetSlot.y;
-          
           pState.currX += (targetX - pState.currX) * 0.1;
           pState.currY += (targetY - pState.currY) * 0.1;
         }
@@ -198,7 +188,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
             state.current.hasLeftOrigin = false; 
-            state.current.activeHandId = activeHand.id; // Lock onto the hand that grabbed the cube!
             break; 
           }
         }
@@ -212,7 +201,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        // Always stick to the active locked finger
         pState.currX = indexX;
         pState.currY = indexY;
 
@@ -220,37 +208,37 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
         const dropThreshold = 120; 
 
+        // Drop if let go
+        if (!isPinching) {
+            state.current.draggedId = null;
+        }
+
         if (!state.current.hasLeftOrigin) {
           if (state.current.layout === 'central' && distToSlot > 150) state.current.hasLeftOrigin = true;
           if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
         }
 
-        if (state.current.hasLeftOrigin) {
+        if (state.current.hasLeftOrigin && !isPinching) {
           if (state.current.layout === 'central') {
             if (distToHole < dropThreshold) {
               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
-              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
               state.current.layout = 'split'; state.current.activeId = pid;
               setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
             } else if (distToSlot < dropThreshold) {
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
-              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
             }
           } 
           else if (state.current.layout === 'split') {
             if (distToSlot < dropThreshold) {
               isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
-              state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
               setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
             } else if (distToHole < dropThreshold) {
                isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
-               state.current.draggedId = null; state.current.activeHandId = null; // Release the lock
             }
           }
         }
       }
 
-      // STREAM DATA TO 3D SCENE
       handsPositionRef.current.uiState = {
         phase, layout: state.current.layout, projects: state.current.projects,expandedId: expandedProject ? expandedProject.id : null,
         holeCurrX: state.current.holeCurrX, holeCurrY: state.current.holeCurrY,
@@ -306,69 +294,51 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-     {/* 2. EXPANDED WINDOW (Hover top bar to shape-shift!) */}
+      {/* EXPANDED WINDOW */}
       {expandedProject && (
         <div style={{
           position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', 
-          // If p3 is active, the background is totally transparent so the 3D scene shines through!
           backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', 
-          borderRadius: '16px',
-          border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', 
+          borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', 
           boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', 
-          backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', 
-          zIndex: 300, display: 'flex', flexDirection: 'column',
-          animation: 'fadeIn 0.3s ease-out'
+          backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out'
         }}>
-          
-          {/* TOP BAR: Hover here to collapse into a cube */}
           <div ref={topBarRef} style={{ 
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', 
             borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', 
             backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', 
-            border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none',
-            borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0',
+            border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none', borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0',
             backdropFilter: 'blur(10px)', pointerEvents: 'auto'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{ 
-                width: '12px', height: '12px', borderRadius: '50%', 
-                backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', 
-                boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` 
-              }} />
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` }} />
               <span style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '1.4rem', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                {expandedProject.id === 'p3' ? 'NEON BUILDER' : expandedProject.title}
+                {expandedProject.id === 'p3' ? 'SPATIAL DRIVE' : expandedProject.title}
               </span>
             </div>
             <div style={{ color: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }}>
-              ::: HOVER FINGER HERE TO CLOSE :::
+              ::: CLOSE VIA BROWSER DEV TOOLS FOR NOW :::
             </div>
           </div>
-
-          {/* STANDARD IFRAME (Only shows if NOT the neon builder) */}
           {expandedProject.id !== 'p3' && (
             <div style={{ flex: 1, padding: '15px', pointerEvents: 'auto' }}>
               <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} title={expandedProject.title} />
             </div>
           )}
-
-          {/* Inside PortfolioUI.jsx */}
-{expandedProject.id === 'p3' && (
-  <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
-    <h2 style={{ letterSpacing: '3px' }}>[ SPATIAL DRIVE ACTIVE ]</h2>
-    <p style={{ fontSize: '1.2rem' }}><b>LEFT HAND:</b> Open Palm to Drive, Fist to Reverse</p>
-    <p style={{ fontSize: '1.2rem' }}><b>RIGHT HAND:</b> Move X-Axis to Steer</p>
-  </div>
-)}
+          {expandedProject.id === 'p3' && (
+            <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
+              <h2 style={{ letterSpacing: '3px' }}>[ ONE-HANDED DRIVE SYSTEM ACTIVE ]</h2>
+              <p style={{ fontSize: '1.2rem' }}><b>GAS:</b> Open Palm &nbsp; | &nbsp; <b>BRAKE/REVERSE:</b> Closed Fist</p>
+              <p style={{ fontSize: '1.2rem' }}><b>STEER:</b> Move hand left/right</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* CURSORS */}
-      <div ref={cursor1Ref} style={{ ...cursorStyle, zIndex: 1000 }} />
-      <div ref={cursor2Ref} style={{ ...cursorStyle, zIndex: 1000 }} />
+      {/* SINGLE CURSOR */}
+      <div ref={cursorRef} style={{ position: 'absolute', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center', marginLeft: '-10px', marginTop: '-10px', boxShadow: '0 0 15px #00ffcc', zIndex: 1000, opacity: 0 }} />
     </div>
   );
 };
-
-const cursorStyle = { position: 'absolute', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center', marginLeft: '-10px', marginTop: '-10px', boxShadow: '0 0 15px #00ffcc' };
 
 export default PortfolioUI;
