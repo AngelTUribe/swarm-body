@@ -120,7 +120,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, 0.15, 0]}
               fontSize={0.16}
               color="#ffffff"
-              font="/FiraMono-Regular.ttf"
+              font="FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
               textAlign="center"
@@ -132,7 +132,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, -0.3, 0]}
               fontSize={0.09}
               color="#00ffcc"
-             font="/FiraMono-Regular.ttf"
+             font="FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
             >
@@ -146,7 +146,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, 0.15, 0]}
               fontSize={0.16}
               color="#ffffff"
-              font="/FiraMono-Regular.ttf"
+              font="FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
               textAlign="center"
@@ -158,7 +158,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
   position={[0, 0.15, 0]}
   fontSize={0.16}
   color="#ffffff"
-  font="/FiraMono-Regular.ttf"
+  font="FiraMono-Regular.ttf"
   anchorX="center"
   anchorY="middle"
   textAlign="center"
