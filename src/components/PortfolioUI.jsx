@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import DJCenter from './DJCenter';
+import VoxelBuilder from './VoxelBuilder';
 
 const PROJECTS = [
   { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
@@ -306,13 +306,13 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-      {/* EXPANDED WINDOW OR DJ CENTER */}
+     {/* EXPANDED WINDOW */}
       {expandedProject && (
         <div style={{ 
           position: 'absolute', top: '15vh', left: '25vw', width: '50vw', height: '70vh', 
           backgroundColor: 'rgba(5, 10, 15, 0.9)', borderRadius: '16px', border: '1px solid #00ffcc', 
           zIndex: 100, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out',
-          pointerEvents: 'auto' 
+          pointerEvents: 'auto'
         }}>
           <div style={{ padding: '15px', borderBottom: '1px solid rgba(0,255,204,0.3)', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
             <span>{expandedProject.title}</span>
@@ -320,14 +320,14 @@ const PortfolioUI = ({ handsPositionRef }) => {
           </div>
           
           <div style={{ flex: 1, padding: '10px', pointerEvents: 'auto', position: 'relative' }}>
-            {/* THE BYPASS: If it's p3, show DJ. Otherwise, show the iframe */}
+            {/* INJECT THE LOGIC RIGHT HERE: */}
             {expandedProject.id === 'p3' ? (
-              <DJCenter handsPositionRef={handsPositionRef} />
+              <VoxelBuilder handsPositionRef={handsPositionRef} />
             ) : (
               <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} />
             )}
           </div>
-          
+
         </div>
       )}
 
@@ -338,6 +338,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   );
 };
 
-const cursorStyle = { position: 'absolute', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center', marginLeft: '-10px', marginTop: '-10px', boxShadow: '0 0 15px #00ffcc', pointerEvents: 'none' };
+const cursorStyle = { position: 'absolute', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transformOrigin: 'center', marginLeft: '-10px', marginTop: '-10px', boxShadow: '0 0 15px #00ffcc' };
 
 export default PortfolioUI;
