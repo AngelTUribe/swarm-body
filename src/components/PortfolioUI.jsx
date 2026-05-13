@@ -358,17 +358,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* DYNAMIC LABELS */}
-      {phase === 'main' && PROJECTS.map(p => {
-        const pState = state.current.projects[p.id];
-        if (pState.slotCurrX === undefined) return null;
-        return (
-          <div key={p.id} id={`label-${p.id}`} style={{ position: 'absolute', left: pState.slotCurrX, top: pState.slotCurrY - 80, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace' }}>
-            <strong>{p.title}</strong>
-          </div>
-        )
-      })}
-
       {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
         <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold', transition: 'opacity 0.3s' }}>

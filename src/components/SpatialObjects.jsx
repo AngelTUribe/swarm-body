@@ -1,6 +1,14 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
+
+// Store the display text mapped to your project IDs
+const PROJECT_INFO = {
+  p1: { title: 'INTERACTIVE\nPORTFOLIO', sub: 'WEB.DEV // 01' },
+  p2: { title: 'ENGINEERING\nRESUME', sub: 'DOC.SYS // 02' },
+  p3: { title: 'SPATIAL\nDRIVE', sub: 'SYS.RENDER // 03' }
+};
 
 const SpatialObjects = ({ handsPositionRef }) => {
   const { viewport } = useThree();
@@ -65,7 +73,8 @@ const SpatialObjects = ({ handsPositionRef }) => {
         cube.position.y = pos.y;
         
         if (uiState.draggedId === id && !uiState.isSnapped) {
-           cube.rotation.x += 0.08; cube.rotation.y += 0.08;
+           cube.rotation.x += 0.08; 
+           cube.rotation.y += 0.08;
            cube.scale.setScalar(0.7);
            cube.position.z = 0.5; 
         } else {
@@ -93,8 +102,69 @@ const SpatialObjects = ({ handsPositionRef }) => {
 
       {['p1', 'p2', 'p3'].map((id) => (
         <group key={id} ref={el => cubesRef.current[id] = el}>
-          <mesh><boxGeometry args={[1.2, 1.2, 1.2]} /><meshPhysicalMaterial color="#00ffcc" transmission={0.7} thickness={1} transparent opacity={0.6}/></mesh>
-          <mesh><boxGeometry args={[0.8, 0.8, 0.8]} /><meshBasicMaterial color="#ffffff" wireframe /></mesh>
+          {/* Outer Glass Shell */}
+          <mesh>
+            <boxGeometry args={[1.2, 1.2, 1.2]} />
+            <meshPhysicalMaterial color="#00ffcc" transmission={0.7} thickness={1} transparent opacity={0.6}/>
+          </mesh>
+          
+          {/* Inner Wireframe Core */}
+          <mesh>
+            <boxGeometry args={[0.8, 0.8, 0.8]} />
+            <meshBasicMaterial color="#ffffff" wireframe />
+          </mesh>
+
+          {/* FRONT FACE TEXT */}
+          <group position={[0, 0, 0.61]}>
+            <Text
+              position={[0, 0.15, 0]}
+              fontSize={0.16}
+              color="#ffffff"
+              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff" // Monospace hacker aesthetic
+              anchorX="center"
+              anchorY="middle"
+              textAlign="center"
+              lineHeight={1.2}
+            >
+              {PROJECT_INFO[id].title}
+            </Text>
+            <Text
+              position={[0, -0.3, 0]}
+              fontSize={0.09}
+              color="#00ffcc"
+              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff"
+              anchorX="center"
+              anchorY="middle"
+            >
+              {PROJECT_INFO[id].sub}
+            </Text>
+          </group>
+
+          {/* REAR FACE TEXT (Visible when you spin the cube) */}
+          <group position={[0, 0, -0.61]} rotation={[0, Math.PI, 0]}>
+            <Text
+              position={[0, 0.15, 0]}
+              fontSize={0.16}
+              color="#ffffff"
+              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff"
+              anchorX="center"
+              anchorY="middle"
+              textAlign="center"
+              lineHeight={1.2}
+            >
+              {PROJECT_INFO[id].title}
+            </Text>
+            <Text
+              position={[0, -0.3, 0]}
+              fontSize={0.09}
+              color="#00ffcc"
+              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff"
+              anchorX="center"
+              anchorY="middle"
+            >
+              {PROJECT_INFO[id].sub}
+            </Text>
+          </group>
         </group>
       ))}
       <ambientLight intensity={1} />
