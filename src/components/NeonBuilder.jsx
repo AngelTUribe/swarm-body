@@ -21,7 +21,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const uiState = handsPositionRef.current?.uiState;
     
     // FIX 1: Accurately checks your specific UI State!
-    if (!uiState || !uiState.isExpanded || uiState.expandedId !== 'p3') {
+   if (!uiState || uiState.expandedId !== 'p3') {
       if (worldGroupRef.current) worldGroupRef.current.visible = false;
       return;
     }
@@ -74,9 +74,10 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const intersects = raycaster.intersectObjects(targets, false);
 
     if (intersects.length > 0) {
-      const hitPoint = intersects[0].point;
-      const hitNormal = intersects[0].face.normal;
-      const hitObject = intersects[0].object;
+  const hitPoint = intersects[0].point;
+  // THE FIX: Add optional chaining and a fallback vector
+  const hitNormal = intersects[0].face?.normal || new THREE.Vector3(0, 1, 0); 
+  const hitObject = intersects[0].object;
       
       const targetPos = hitPoint.clone().add(hitNormal.clone().multiplyScalar(blockSize * 0.5));
       

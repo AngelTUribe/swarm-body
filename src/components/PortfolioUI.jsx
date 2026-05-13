@@ -10,6 +10,7 @@ const PROJECTS = [
 const PortfolioUI = ({ handsPositionRef }) => {
   const cursor1Ref = useRef(null);
   const cursor2Ref = useRef(null);
+  const topBarRef = useRef(null);
 
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
