@@ -25,7 +25,7 @@ const getThickness = (jointIndex) => {
   return 0.25; 
 };
 
-const Swarm = ({ handsPositionRef, count = 6000 }) => {
+const Swarm = ({ handsPositionRef, count = 4000 }) => {
   const pointsRef = useRef();
   const { viewport } = useThree();
 
