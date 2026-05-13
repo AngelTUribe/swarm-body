@@ -7,7 +7,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
   const [blocks, setBlocks] = useState([]);
 
   const worldGroupRef = useRef();
-  const blocksGroupRef = useRef();
   const invisiblePlaneRef = useRef();
   const ghostCubeRef = useRef();
 
@@ -17,7 +16,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
   const neonColor = new THREE.Color('#ff00ff');
   const blockSize = 0.4;
 
-  // True 3D depth-aware pinch detection
   const isPinching3D = (hand) => {
     const thumb = hand[4];
     const index = hand[8];
@@ -57,7 +55,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
     let rightHand = null;
     let leftHand = null;
 
-    // Split roles based on screen position
     hands.forEach(hand => {
       if (!hand || !hand[8]) return;
       const ix = (1 - hand[8].x) * screenW;
@@ -78,7 +75,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
         if (lastRotPos.current && worldGroupRef.current) {
           const dx = ix - lastRotPos.current.x;
           const dy = iy - lastRotPos.current.y;
-          // Spin the world
+          // Spin the canvas!
           worldGroupRef.current.rotation.y += dx * 0.005;
           worldGroupRef.current.rotation.x += dy * 0.005;
         }
@@ -90,7 +87,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
       lastRotPos.current = null;
     }
 
-    // === 2. LEFT HAND: VOXEL BUILDER ===
+    // === 2. LEFT HAND: 2D VOXEL BUILDER ===
     if (leftHand && !isRotating) {
       const ix = (1 - leftHand[8].x) * screenW;
       const iy = leftHand[8].y * screenH;
@@ -101,28 +98,25 @@ const NeonBuilder = ({ handsPositionRef }) => {
       const ndcY = -(iy / screenH) * 2 + 1;
       raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
 
+      // ONLY raycast the invisible plane! Ignore the blocks entirely to prevent 3D stacking.
       const targets = [];
       if (invisiblePlaneRef.current) targets.push(invisiblePlaneRef.current);
-      if (blocksGroupRef.current) targets.push(...blocksGroupRef.current.children);
 
       const intersects = raycaster.intersectObjects(targets, false);
 
       if (intersects.length > 0) {
         const hitPointWorld = intersects[0].point;
-        const hitObject = intersects[0].object;
-
-        // THE FIX: Convert world hit into the rotated group's local space
         const localHitPoint = worldGroupRef.current.worldToLocal(hitPointWorld.clone());
-        const localNormal = intersects[0].face?.normal?.clone() || new THREE.Vector3(0, 1, 0);
 
-        const targetPos = localHitPoint.add(localNormal.multiplyScalar(blockSize * 0.5));
-        
-        targetPos.x = snap(targetPos.x, blockSize);
-        targetPos.y = snap(targetPos.y, blockSize);
-        targetPos.z = snap(targetPos.z, blockSize);
+        // Force strictly 2D by snapping X and Y, and locking Z to exactly 0
+        const targetPos = {
+            x: snap(localHitPoint.x, blockSize),
+            y: snap(localHitPoint.y, blockSize),
+            z: 0 
+        };
 
         if (ghostCubeRef.current) {
-          ghostCubeRef.current.position.lerp(targetPos, 0.6); // Smooth glide
+          ghostCubeRef.current.position.set(targetPos.x, targetPos.y, targetPos.z);
           ghostCubeRef.current.visible = !fist;
         }
 
@@ -130,11 +124,10 @@ const NeonBuilder = ({ handsPositionRef }) => {
         if (pinching) {
            if (!lastBuiltPos.current ||
                lastBuiltPos.current.x !== targetPos.x ||
-               lastBuiltPos.current.y !== targetPos.y ||
-               lastBuiltPos.current.z !== targetPos.z) {
+               lastBuiltPos.current.y !== targetPos.y) {
 
                setBlocks(prev => {
-                 const exists = prev.some(b => b.x === targetPos.x && b.y === targetPos.y && b.z === targetPos.z);
+                 const exists = prev.some(b => b.x === targetPos.x && b.y === targetPos.y);
                  if (!exists) return [...prev, { ...targetPos, id: Date.now() }];
                  return prev;
                });
@@ -144,14 +137,9 @@ const NeonBuilder = ({ handsPositionRef }) => {
            lastBuiltPos.current = null;
         }
 
-        // ERASE: Make a fist over a block to delete it
+        // ERASE: Delete whatever block matches the current grid coordinate
         if (fist) {
-           if (hitObject !== invisiblePlaneRef.current) {
-              const blockId = hitObject.userData.blockId;
-              if (blockId) {
-                 setBlocks(prev => prev.filter(b => b.id !== blockId));
-              }
-           }
+           setBlocks(prev => prev.filter(b => b.x !== targetPos.x || b.y !== targetPos.y));
            if (ghostCubeRef.current) ghostCubeRef.current.visible = false;
         }
 
@@ -166,25 +154,27 @@ const NeonBuilder = ({ handsPositionRef }) => {
   });
 
   return (
-    // Moved down slightly so it sits comfortably in your camera view
-    <group position={[0, -1, 0]}> 
+    // Centered in front of the camera
+    <group position={[0, 0, 0]}> 
       <group ref={worldGroupRef}>
 
-        {/* The visual anchor floor */}
-        <gridHelper args={[20, 50, '#00ffcc', '#003322']} position={[0, 0, 0]} />
+        {/* The visual anchor canvas - rotated 90 degrees to face the camera */}
+        <gridHelper args={[20, 50, '#00ffcc', '#003322']} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]} />
 
-        <mesh ref={invisiblePlaneRef} rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]}>
+        {/* The Raycast backboard - no longer rotated, stands up straight */}
+        <mesh ref={invisiblePlaneRef} position={[0, 0, 0]}>
            <planeGeometry args={[20, 20]} />
            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
 
-        <group ref={blocksGroupRef}>
+        <group>
            {blocks.map(block => (
-             <mesh key={block.id} position={[block.x, block.y, block.z]} userData={{ blockId: block.id }}>
-               <boxGeometry args={[blockSize, blockSize, blockSize]} />
+             <mesh key={block.id} position={[block.x, block.y, block.z]}>
+               {/* Shrink the block slightly so they don't perfectly touch, leaving a cool grid gap */}
+               <boxGeometry args={[blockSize - 0.02, blockSize - 0.02, blockSize - 0.02]} />
                <meshBasicMaterial color={neonColor} transparent opacity={0.3} depthWrite={false} />
                <lineSegments>
-                 <edgesGeometry args={[new THREE.BoxGeometry(blockSize, blockSize, blockSize)]} />
+                 <edgesGeometry args={[new THREE.BoxGeometry(blockSize - 0.02, blockSize - 0.02, blockSize - 0.02)]} />
                  <lineBasicMaterial color={neonColor} linewidth={2} />
                </lineSegments>
              </mesh>
@@ -192,7 +182,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
         </group>
 
         <mesh ref={ghostCubeRef} visible={false}>
-          <boxGeometry args={[blockSize + 0.02, blockSize + 0.02, blockSize + 0.02]} />
+          <boxGeometry args={[blockSize, blockSize, blockSize]} />
           <meshBasicMaterial color="#ffffff" transparent opacity={0.6} wireframe />
         </mesh>
 
