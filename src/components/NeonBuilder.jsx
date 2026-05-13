@@ -16,7 +16,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
   const neonColor = new THREE.Color('#ff00ff');
   const blockSize = 0.4;
 
-  // 1. Precise 3D Pinch Detection
   const isPinching3D = (hand) => {
     const thumb = hand[4];
     const index = hand[8];
@@ -26,7 +25,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
     return Math.sqrt(dx * dx + dy * dy + dz * dz) < 0.055;
   };
 
-  // 2. Fist Detection (Eraser)
   const isFist = (hand) => {
     const wrist = hand[0];
     const tips = [8, 12, 16, 20];
@@ -39,7 +37,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
     return curled >= 3 && !isPinching3D(hand);
   };
 
-  // 3. Open Palm Detection (Rotator)
   const isOpenPalm = (hand) => {
     const wrist = hand[0];
     const tips = [8, 12, 16, 20];
@@ -67,7 +64,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
 
-    // ONLY process the primary hand to prevent confusion
+    // STRICTLY lock to the primary hand. 
     const activeHand = hands[0];
 
     if (!activeHand) {
@@ -89,13 +86,15 @@ const NeonBuilder = ({ handsPositionRef }) => {
       if (lastRotPos.current && worldGroupRef.current) {
         const dx = ix - lastRotPos.current.x;
         const dy = iy - lastRotPos.current.y;
-        worldGroupRef.current.rotation.y += dx * 0.005;
-        worldGroupRef.current.rotation.x += dy * 0.005;
+        
+        // REDUCED SENSITIVITY: Lowered from 0.005 to 0.0015 for heavy, smooth spinning
+        worldGroupRef.current.rotation.y += dx * 0.0015;
+        worldGroupRef.current.rotation.x += dy * 0.0015;
       }
       lastRotPos.current = { x: ix, y: iy };
-      if (ghostCubeRef.current) ghostCubeRef.current.visible = false; // Hide cursor while spinning
+      if (ghostCubeRef.current) ghostCubeRef.current.visible = false; 
       lastBuiltPos.current = null;
-      return; // Skip raycasting while spinning to save performance
+      return; 
     } else {
       lastRotPos.current = null;
     }
@@ -105,7 +104,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const ndcY = -(iy / screenH) * 2 + 1;
     raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
 
-    // Only raycast against the invisible backboard to force a strict 2D plane
     const targets = [];
     if (invisiblePlaneRef.current) targets.push(invisiblePlaneRef.current);
 
@@ -115,7 +113,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
       const hitPointWorld = intersects[0].point;
       const localHitPoint = worldGroupRef.current.worldToLocal(hitPointWorld.clone());
 
-      // Lock to 2D Grid
       const targetPos = {
           x: snap(localHitPoint.x, blockSize),
           y: snap(localHitPoint.y, blockSize),
@@ -124,7 +121,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
 
       if (ghostCubeRef.current) {
         ghostCubeRef.current.position.set(targetPos.x, targetPos.y, targetPos.z);
-        ghostCubeRef.current.visible = !fist; // Hide cursor if erasing
+        ghostCubeRef.current.visible = !fist; 
       }
 
       // === ACTION: CONTINUOUS DRAWING ===
@@ -157,13 +154,14 @@ const NeonBuilder = ({ handsPositionRef }) => {
   });
 
   return (
-    <group position={[0, 0, 0]}> 
+    // PUSHED BACK: Z is now -3 so it sits at a comfortable distance, and Y is slightly lowered to center it.
+    <group position={[0, -0.5, -3]}> 
       <group ref={worldGroupRef}>
 
-        {/* The Raycast backboard - Stands up straight, completely invisible */}
+        {/* DOUBLE SIDED: Added side={THREE.DoubleSide} so you can draw from the back! */}
         <mesh ref={invisiblePlaneRef} position={[0, 0, 0]}>
            <planeGeometry args={[20, 20]} />
-           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+           <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
 
         <group>
@@ -179,7 +177,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
            ))}
         </group>
 
-        {/* The Hover Cursor */}
         <mesh ref={ghostCubeRef} visible={false}>
           <boxGeometry args={[blockSize, blockSize, blockSize]} />
           <meshBasicMaterial color="#ffffff" transparent opacity={0.6} wireframe />
