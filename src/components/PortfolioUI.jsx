@@ -7,12 +7,12 @@ const PROJECTS = [
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
-  // We only need ONE cursor now
   const cursorRef = useRef(null);
   const topBarRef = useRef(null);
   
-  // THE SPATIAL LOCK MEMORY
-  const activeHandMemory = useRef({ position: null, locked: false });
+  // 1. ADVANCED MEMORY BUFFERS
+  const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
+  const pinchMemory = useRef({ isPinching: false, releasedFrames: 0 });
 
   const [phase, setPhase] = useState('boot'); 
   const [expandedProject, setExpandedProject] = useState(null);
@@ -68,17 +68,28 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      // === THE SPATIAL HAND LOCK ENGINE ===
       let activeHand = null;
+      let indexX = null; 
+      let indexY = null; 
+      let rawPinching = false;
 
+      // === 2. SPATIAL LOCK & TRACKING BUFFER ===
       if (hands.length === 0) {
-        activeHandMemory.current.locked = false;
-        activeHandMemory.current.position = null;
-      } else if (hands.length === 1) {
-        activeHand = hands[0];
-        activeHandMemory.current.locked = true;
-        activeHandMemory.current.position = activeHand[8]; 
+        activeHandMemory.current.lostFrames++;
+        
+        // If we lose tracking for more than 15 frames (~250ms), reset.
+        if (activeHandMemory.current.lostFrames > 15) { 
+          activeHandMemory.current.locked = false;
+          activeHandMemory.current.position = null;
+          state.current.draggedId = null; // Auto-drop if hand completely leaves camera
+        } else if (activeHandMemory.current.position) {
+          // FAKE THE HAND: Keep it exactly where it was before tracking blipped
+          indexX = (1 - activeHandMemory.current.position.x) * screenW;
+          indexY = activeHandMemory.current.position.y * screenH;
+          rawPinching = pinchMemory.current.isPinching; 
+        }
       } else {
+        activeHandMemory.current.lostFrames = 0;
         if (!activeHandMemory.current.locked || !activeHandMemory.current.position) {
           activeHand = hands[0];
           activeHandMemory.current.locked = true;
@@ -93,27 +104,45 @@ const PortfolioUI = ({ handsPositionRef }) => {
           });
           activeHand = closestHand;
         }
-        if(activeHand && activeHand[8]) activeHandMemory.current.position = activeHand[8];
+        
+        if(activeHand && activeHand[8] && activeHand[4]) {
+            activeHandMemory.current.position = activeHand[8];
+            const thumb = activeHand[4]; 
+            const index = activeHand[8];
+            indexX = (1 - index.x) * screenW; 
+            indexY = index.y * screenH;
+            const tx = (1 - thumb.x) * screenW; 
+            const ty = thumb.y * screenH;
+            
+            // Slightly increased tolerance for grabbing
+            rawPinching = Math.hypot(tx - indexX, ty - indexY) < 60; 
+        }
       }
 
-      let indexX = null; let indexY = null; let isPinching = false;
-
-      // Update the single cursor
-      if (activeHand && activeHand[8] && activeHand[4]) {
-        const thumb = activeHand[4]; const index = activeHand[8];
-        indexX = (1 - index.x) * screenW; 
-        indexY = index.y * screenH;
-        const tx = (1 - thumb.x) * screenW; 
-        const ty = thumb.y * screenH;
-        isPinching = Math.hypot(tx - indexX, ty - indexY) < 45;
-        
-        if (cursorRef.current) {
-          cursorRef.current.style.opacity = 1;
-          cursorRef.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
-          cursorRef.current.style.backgroundColor = isPinching ? '#00ffcc' : 'white';
-        }
+      // === 3. PINCH SLIP BUFFER ===
+      if (rawPinching) {
+        pinchMemory.current.isPinching = true;
+        pinchMemory.current.releasedFrames = 0;
       } else {
-        if (cursorRef.current) cursorRef.current.style.opacity = 0;
+        pinchMemory.current.releasedFrames++;
+        // Give a 10-frame grace period if fingers slip apart slightly
+        if (pinchMemory.current.releasedFrames > 10) { 
+          pinchMemory.current.isPinching = false;
+        }
+      }
+      const isPinching = pinchMemory.current.isPinching;
+
+      // UPDATE CURSOR UI
+      if (indexX !== null) {
+          // Keep cursor green if they are actively holding a cube, even if physically un-pinched
+          const showPinchUI = isPinching || state.current.draggedId !== null;
+          if (cursorRef.current) {
+            cursorRef.current.style.opacity = 1;
+            cursorRef.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
+            cursorRef.current.style.backgroundColor = showPinchUI ? '#00ffcc' : 'white';
+          }
+      } else {
+          if (cursorRef.current) cursorRef.current.style.opacity = 0;
       }
 
       // === BOOT PHASE ===
@@ -150,7 +179,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       handsPositionRef.current.zipperState = { phase: 'main' };
 
-      // === UNIFIED PHYSICS GLIDE ===
+      // === PHYSICS GLIDE ===
       let isSnapped = false; 
       const targetHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
       state.current.holeCurrX += (targetHole.x - state.current.holeCurrX) * 0.1;
@@ -171,7 +200,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         pState.slotCurrY += (targetSlot.y - pState.slotCurrY) * 0.1;
 
         const projectLabel = document.getElementById(`label-${p.id}`);
-        if (projectLabel) projectLabel.style.left = `${pState.slotCurrX}px`; projectLabel.style.top = `${pState.slotCurrY - 80}px`;
+        if (projectLabel) {
+            projectLabel.style.left = `${pState.slotCurrX}px`; 
+            projectLabel.style.top = `${pState.slotCurrY - 80}px`;
+        }
 
         if (state.current.draggedId !== p.id) {
           let targetX = (state.current.activeId === p.id) ? targetHole.x : targetSlot.x;
@@ -193,7 +225,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       }
 
-      // === STICKY DRAG & MAGNETIC SNAP LOGIC ===
+      // === 4. STICKY DRAG & MAGNETIC SNAP LOGIC ===
       if (state.current.draggedId && indexX !== null) {
         const pid = state.current.draggedId;
         const pState = state.current.projects[pid];
@@ -208,8 +240,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
         const dropThreshold = 120; 
 
-        // Drop if let go
-        if (!isPinching) {
+        const overValidTarget = distToHole < dropThreshold || distToSlot < dropThreshold;
+
+        // ULTRA STICKY: Only allow the cube to drop if you un-pinch WHILE hovering over a target
+        if (!isPinching && overValidTarget) {
             state.current.draggedId = null;
         }
 
@@ -218,7 +252,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
         }
 
-        if (state.current.hasLeftOrigin && !isPinching) {
+        // Snap Logic (Triggers when the cube is successfully dropped)
+        if (state.current.hasLeftOrigin && state.current.draggedId === null) {
           if (state.current.layout === 'central') {
             if (distToHole < dropThreshold) {
               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
