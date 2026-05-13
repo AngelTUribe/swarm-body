@@ -252,7 +252,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       // STREAM DATA TO 3D SCENE
       handsPositionRef.current.uiState = {
-        phase, layout: state.current.layout, projects: state.current.projects,
+        phase, layout: state.current.layout, projects: state.current.projects,expandedId: expandedProject ? expandedProject.id : null,
         holeCurrX: state.current.holeCurrX, holeCurrY: state.current.holeCurrY,
         draggedId: state.current.draggedId, activeId: state.current.activeId, isSnapped, screenW, screenH
       };

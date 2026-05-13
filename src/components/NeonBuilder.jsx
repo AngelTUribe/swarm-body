@@ -14,15 +14,14 @@ const NeonBuilder = ({ handsPositionRef }) => {
   const prevPinchRef = useRef(false);
   const lastPalmPosRef = useRef(null);
 
-  // The Hot Pink Neon from your reference image!
   const neonColor = new THREE.Color('#ff00ff');
   const blockSize = 1.5;
 
   useFrame(() => {
     const uiState = handsPositionRef.current?.uiState;
     
-    // Completely hide the engine if we aren't in the Game mode
-    if (!uiState || uiState.activeId !== 'p3') {
+    // FIX 1: Accurately checks your specific UI State!
+    if (!uiState || !uiState.isExpanded || uiState.expandedId !== 'p3') {
       if (worldGroupRef.current) worldGroupRef.current.visible = false;
       return;
     }
@@ -33,7 +32,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
 
-    // Use Hand 1 for building
     const hand = hands[0];
     if (!hand) {
        if (ghostCubeRef.current) ghostCubeRef.current.visible = false;
@@ -45,18 +43,14 @@ const NeonBuilder = ({ handsPositionRef }) => {
     const index = hand[8];
     const wrist = hand[0];
 
-    // Screen Coords
     const ix = (1 - index.x) * screenW;
     const iy = index.y * screenH;
     const tx = (1 - thumb.x) * screenW;
     const ty = thumb.y * screenH;
 
     // === 1. GESTURE RECOGNITION ===
-    
-    // A. Pinch
     const isPinching = Math.hypot(tx - ix, ty - iy) < 45;
 
-    // B. Fist (Check if all 4 fingertips are curled closer to the wrist than their knuckles are)
     const tips = [8, 12, 16, 20];
     let curledCount = 0;
     tips.forEach(tipIdx => {
@@ -64,9 +58,8 @@ const NeonBuilder = ({ handsPositionRef }) => {
        const knuckleDist = Math.hypot(hand[tipIdx - 3].x - wrist.x, hand[tipIdx - 3].y - wrist.y);
        if (tipDist < knuckleDist) curledCount++;
     });
+    
     const isFist = curledCount >= 3 && !isPinching; 
-
-    // C. Open Palm (Fingers extended, not pinching)
     const isOpenPalm = !isPinching && !isFist && curledCount === 0;
 
     // === 2. 3D RAYCASTING ===
@@ -85,21 +78,17 @@ const NeonBuilder = ({ handsPositionRef }) => {
       const hitNormal = intersects[0].face.normal;
       const hitObject = intersects[0].object;
       
-      // Calculate target by pushing slightly OUT of the face we hit
       const targetPos = hitPoint.clone().add(hitNormal.clone().multiplyScalar(blockSize * 0.5));
       
-      // Math: Snap exactly to a clean 3D grid
       targetPos.x = Math.floor(targetPos.x / blockSize) * blockSize + (blockSize/2);
       targetPos.y = Math.floor(targetPos.y / blockSize) * blockSize + (blockSize/2);
       targetPos.z = Math.floor(targetPos.z / blockSize) * blockSize + (blockSize/2);
 
-      // Show aiming cursor
       if (ghostCubeRef.current) {
          ghostCubeRef.current.position.copy(targetPos);
          ghostCubeRef.current.visible = !isOpenPalm && !isFist; 
       }
 
-      // ACTION: BUILD BLOCK
       if (isPinching && !prevPinchRef.current) {
          setBlocks(prev => {
             const exists = prev.some(b => b.x === targetPos.x && b.y === targetPos.y && b.z === targetPos.z);
@@ -110,7 +99,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
          });
       }
 
-      // ACTION: ERASER FIST
       if (isFist) {
          if (hitObject && hitObject !== invisiblePlaneRef.current) {
             const blockId = hitObject.userData.blockId;
@@ -124,7 +112,7 @@ const NeonBuilder = ({ handsPositionRef }) => {
       if (ghostCubeRef.current) ghostCubeRef.current.visible = false;
     }
 
-    // === 3. ROTATE WORLD (Open Palm) ===
+    // === 3. ROTATE WORLD ===
     if (isOpenPalm) {
        if (lastPalmPosRef.current !== null) {
           const deltaX = index.x - lastPalmPosRef.current.x;
@@ -145,12 +133,13 @@ const NeonBuilder = ({ handsPositionRef }) => {
 
   return (
     <group ref={worldGroupRef} visible={false}>
-      {/* Invisible baseline plane (gives you something to place the first block on) */}
-      <mesh ref={invisiblePlaneRef} visible={false}>
+      
+      {/* FIX 2: Invisible plane must be transparent, not visible={false}, or raycaster ignores it! */}
+      <mesh ref={invisiblePlaneRef} rotation={[-Math.PI/2, 0, 0]} position={[0, -1, 0]}>
          <planeGeometry args={[100, 100]} />
+         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {/* RENDER THE NEON BLOCKS */}
       <group ref={blocksGroupRef}>
          {blocks.map(block => (
            <mesh key={block.id} position={[block.x, block.y, block.z]} userData={{ blockId: block.id }}>
@@ -164,7 +153,6 @@ const NeonBuilder = ({ handsPositionRef }) => {
          ))}
       </group>
 
-      {/* Holographic Aiming Cursor */}
       <mesh ref={ghostCubeRef} visible={false}>
         <boxGeometry args={[blockSize + 0.05, blockSize + 0.05, blockSize + 0.05]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.6} wireframe />
