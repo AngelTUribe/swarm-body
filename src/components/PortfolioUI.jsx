@@ -306,28 +306,60 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-     {/* EXPANDED WINDOW */}
+     {/* 2. EXPANDED WINDOW (Hover top bar to shape-shift!) */}
       {expandedProject && (
-        <div style={{ 
-          position: 'absolute', top: '15vh', left: '25vw', width: '50vw', height: '70vh', 
-          backgroundColor: 'rgba(5, 10, 15, 0.9)', borderRadius: '16px', border: '1px solid #00ffcc', 
-          zIndex: 100, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out',
-          pointerEvents: 'auto'
+        <div style={{
+          position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', 
+          // If p3 is active, the background is totally transparent so the 3D scene shines through!
+          backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', 
+          borderRadius: '16px',
+          border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', 
+          boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', 
+          backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', 
+          zIndex: 300, display: 'flex', flexDirection: 'column',
+          animation: 'fadeIn 0.3s ease-out'
         }}>
-          <div style={{ padding: '15px', borderBottom: '1px solid rgba(0,255,204,0.3)', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{expandedProject.title}</span>
-            <span style={{ color: '#ff0055', fontSize: '0.8rem', fontWeight: 'bold' }}>DRAG CUBE TO LEFT TO CLOSE</span>
-          </div>
           
-          <div style={{ flex: 1, padding: '10px', pointerEvents: 'auto', position: 'relative' }}>
-            {/* INJECT THE LOGIC RIGHT HERE: */}
-            {expandedProject.id === 'p3' ? (
-              <VoxelBuilder handsPositionRef={handsPositionRef} />
-            ) : (
-              <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} />
-            )}
+          {/* TOP BAR: Hover here to collapse into a cube */}
+          <div ref={topBarRef} style={{ 
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', 
+            borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', 
+            backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', 
+            border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none',
+            borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0',
+            backdropFilter: 'blur(10px)', pointerEvents: 'auto'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ 
+                width: '12px', height: '12px', borderRadius: '50%', 
+                backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', 
+                boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` 
+              }} />
+              <span style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '1.4rem', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                {expandedProject.id === 'p3' ? 'NEON BUILDER' : expandedProject.title}
+              </span>
+            </div>
+            <div style={{ color: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }}>
+              ::: HOVER FINGER HERE TO CLOSE :::
+            </div>
           </div>
 
+          {/* STANDARD IFRAME (Only shows if NOT the neon builder) */}
+          {expandedProject.id !== 'p3' && (
+            <div style={{ flex: 1, padding: '15px', pointerEvents: 'auto' }}>
+              <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} title={expandedProject.title} />
+            </div>
+          )}
+
+          {/* FLOATING INSTRUCTIONS (Only shows during neon builder) */}
+          {expandedProject.id === 'p3' && (
+            <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
+              <h2 style={{ letterSpacing: '3px' }}>[ SPATIAL HANDS ACTIVE ]</h2>
+              <p style={{ fontSize: '1.2rem' }}><b>PINCH:</b> Build Block</p>
+              <p style={{ fontSize: '1.2rem' }}><b>OPEN PALM:</b> Rotate World</p>
+              <p style={{ fontSize: '1.2rem' }}><b>CLOSED FIST:</b> Hover to Erase</p>
+            </div>
+          )}
         </div>
       )}
 
