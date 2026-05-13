@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import DJCenter from './DJCenter';
 
 const PROJECTS = [
   { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
