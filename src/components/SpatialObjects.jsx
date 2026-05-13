@@ -120,7 +120,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, 0.15, 0]}
               fontSize={0.16}
               color="#ffffff"
-              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff" // Monospace hacker aesthetic
+              font="/FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
               textAlign="center"
@@ -132,7 +132,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, -0.3, 0]}
               fontSize={0.09}
               color="#00ffcc"
-              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff"
+             font="/FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
             >
@@ -146,7 +146,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
               position={[0, 0.15, 0]}
               fontSize={0.16}
               color="#ffffff"
-              font="https://fonts.gstatic.com/s/firamono/v14/N0bX2SlFPv1weGeLZDtgJv7S.woff"
+              font="/FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
               textAlign="center"
