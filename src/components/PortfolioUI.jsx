@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import NeonBuilder from './NeonBuilder';
 
 const PROJECTS = [
   { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
@@ -352,15 +351,14 @@ const PortfolioUI = ({ handsPositionRef }) => {
             </div>
           )}
 
-          {/* FLOATING INSTRUCTIONS (Only shows during neon builder) */}
-          {expandedProject.id === 'p3' && (
-            <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
-              <h2 style={{ letterSpacing: '3px' }}>[ SPATIAL HANDS ACTIVE ]</h2>
-              <p style={{ fontSize: '1.2rem' }}><b>PINCH:</b> Build Block</p>
-              <p style={{ fontSize: '1.2rem' }}><b>OPEN PALM:</b> Rotate World</p>
-              <p style={{ fontSize: '1.2rem' }}><b>CLOSED FIST:</b> Hover to Erase</p>
-            </div>
-          )}
+          {/* Inside PortfolioUI.jsx */}
+{expandedProject.id === 'p3' && (
+  <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
+    <h2 style={{ letterSpacing: '3px' }}>[ SPATIAL DRIVE ACTIVE ]</h2>
+    <p style={{ fontSize: '1.2rem' }}><b>LEFT HAND:</b> Open Palm to Drive, Fist to Reverse</p>
+    <p style={{ fontSize: '1.2rem' }}><b>RIGHT HAND:</b> Move X-Axis to Steer</p>
+  </div>
+)}
         </div>
       )}
 

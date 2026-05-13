@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import Swarm from './Swarm'; 
 import SprawlParticles from './SprawlParticles';
 import SpatialObjects from './SpatialObjects'; 
-import NeonBuilder from './NeonBuilder'; // <--- 1. IMPORT IT HERE
+import SpatialDrive from './SpatialDrive'; // <--- 1. Import the new game
 
 const Scene = ({ handsPositionRef }) => {
   return (
@@ -12,8 +12,8 @@ const Scene = ({ handsPositionRef }) => {
       <SprawlParticles handsPositionRef={handsPositionRef} />
       <SpatialObjects handsPositionRef={handsPositionRef} />
       
-      {/* 2. DROP IT IN THE SCENE */}
-      <NeonBuilder handsPositionRef={handsPositionRef} />
+      {/* 2. Replace NeonBuilder with SpatialDrive */}
+      <SpatialDrive handsPositionRef={handsPositionRef} />
     </Canvas>
   );
 };
