@@ -6,14 +6,12 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const gameGroupRef = useRef();
   const carRef = useRef();
   
-  // Physics State
   const speedRef = useRef(0);
   const angleRef = useRef(0);
 
   const neonCyan = new THREE.Color('#00ffcc');
   const neonPink = new THREE.Color('#ff00ff');
 
-  // Gesture Recognition
   const isFist = (hand) => {
     const wrist = hand[0];
     const tips = [8, 12, 16, 20];
@@ -41,7 +39,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
   useFrame(() => {
     const uiState = handsPositionRef.current?.uiState;
     
-    // Only render when the 3rd project is expanded
     if (!uiState || uiState.expandedId !== 'p3') {
       if (gameGroupRef.current) gameGroupRef.current.visible = false;
       return;
@@ -55,7 +52,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
     let leftHand = null;
     let rightHand = null;
 
-    // Split hands based on screen side
     hands.forEach(hand => {
       if (!hand || !hand[8]) return;
       const ix = (1 - hand[8].x) * screenW;
@@ -63,86 +59,92 @@ const SpatialDrive = ({ handsPositionRef }) => {
       else rightHand = hand;
     });
 
-    // === ENGINE (Left Hand) ===
+    // === SMOOTHER ENGINE ===
     let acceleration = 0;
     if (leftHand) {
       if (isOpenPalm(leftHand)) {
-        acceleration = 0.015; // Gas
+        acceleration = 0.006; // Lowered gas for control
       } else if (isFist(leftHand)) {
-        acceleration = -0.01; // Reverse / Brake
+        acceleration = -0.004; // Gentle brakes
       }
     }
 
-    // === STEERING (Right Hand) ===
+    // === HEAVIER STEERING ===
     let steerInput = 0;
     if (rightHand) {
       const ix = (1 - rightHand[8].x) * screenW;
       const rightCenter = screenW * 0.75;
-      
-      // Calculate how far left/right the hand is from the center of its zone
       const rawSteer = (rightCenter - ix) / (screenW * 0.25);
-      
-      // Clamp between -1 and 1
       steerInput = Math.max(-1, Math.min(1, rawSteer)); 
     }
 
-    // === APPLY PHYSICS ===
     speedRef.current += acceleration;
-    speedRef.current *= 0.95; // Friction (coasts to a stop)
+    speedRef.current *= 0.93; // Higher friction so it doesn't slide forever
 
-    // Only allow steering if the car is actually moving
     if (Math.abs(speedRef.current) > 0.001) {
-      // Reverse steering direction if driving backward
       const directionMult = speedRef.current > 0 ? 1 : -1;
-      angleRef.current += steerInput * 0.08 * directionMult;
+      angleRef.current += steerInput * 0.035 * directionMult; // Slower turn radius
     }
 
-    // Update Car Position
+    // === OVAL TRACK PHYSICS ===
     if (carRef.current) {
       carRef.current.rotation.y = angleRef.current;
       
       const nextX = carRef.current.position.x + Math.sin(angleRef.current) * speedRef.current;
       const nextZ = carRef.current.position.z + Math.cos(angleRef.current) * speedRef.current;
 
-      // Arena Collision Boundaries (Hard stop at the walls)
-      if (nextX < 9.5 && nextX > -9.5) carRef.current.position.x = nextX;
-      else speedRef.current *= -0.5; // Bounce off wall
-      
-      if (nextZ < 9.5 && nextZ > -9.5) carRef.current.position.z = nextZ;
-      else speedRef.current *= -0.5; // Bounce off wall
+      const distFromCenter = Math.hypot(nextX, nextZ);
+      const innerRadius = 5;
+      const outerRadius = 11;
+
+      // Wall bumping logic - scrubs speed instead of violently bouncing
+      if (distFromCenter < innerRadius) {
+        const bounceAngle = Math.atan2(nextX, nextZ);
+        carRef.current.position.x = Math.sin(bounceAngle) * innerRadius;
+        carRef.current.position.z = Math.cos(bounceAngle) * innerRadius;
+        speedRef.current *= 0.5; 
+      } else if (distFromCenter > outerRadius) {
+        const bounceAngle = Math.atan2(nextX, nextZ);
+        carRef.current.position.x = Math.sin(bounceAngle) * outerRadius;
+        carRef.current.position.z = Math.cos(bounceAngle) * outerRadius;
+        speedRef.current *= 0.5; 
+      } else {
+        carRef.current.position.x = nextX;
+        carRef.current.position.z = nextZ;
+      }
     }
   });
 
   return (
-    // Set slightly back so you can see the whole arena
-    <group ref={gameGroupRef} position={[0, -2, -8]} visible={false}>
+    // THE TILT: Rotated up by -Math.PI/3 to face the camera like a top-down arcade game!
+    <group ref={gameGroupRef} position={[0, -2, -12]} rotation={[-Math.PI / 3, 0, 0]} visible={false}>
       
-      {/* ARENA ENVIRONMENT */}
+      {/* THE TRACK */}
       <group>
-        {/* Tron-style grid floor */}
-        <gridHelper args={[20, 20, neonPink, '#110022']} position={[0, 0, 0]} />
+        {/* Dark Asphalt Floor */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+           <ringGeometry args={[5, 11, 64]} />
+           <meshBasicMaterial color="#050a0f" transparent opacity={0.9} />
+        </mesh>
         
-        {/* Outer Walls */}
-        <mesh position={[0, 0.5, -10]}>
-            <boxGeometry args={[20, 1, 0.2]} />
-            <meshBasicMaterial color={neonCyan} wireframe />
+        {/* Neon Outer Wall */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[11, 11.2, 64]} />
+            <meshBasicMaterial color={neonCyan} side={THREE.DoubleSide} />
         </mesh>
-        <mesh position={[0, 0.5, 10]}>
-            <boxGeometry args={[20, 1, 0.2]} />
-            <meshBasicMaterial color={neonCyan} wireframe />
+
+        {/* Neon Inner Wall */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[4.8, 5, 64]} />
+            <meshBasicMaterial color={neonPink} side={THREE.DoubleSide} />
         </mesh>
-        <mesh position={[-10, 0.5, 0]}>
-            <boxGeometry args={[0.2, 1, 20]} />
-            <meshBasicMaterial color={neonCyan} wireframe />
-        </mesh>
-        <mesh position={[10, 0.5, 0]}>
-            <boxGeometry args={[0.2, 1, 20]} />
-            <meshBasicMaterial color={neonCyan} wireframe />
-        </mesh>
+
+        {/* Center Grid Decoration */}
+        <gridHelper args={[9, 10, neonPink, '#110022']} position={[0, -0.1, 0]} />
       </group>
 
-      {/* THE PLAYER CAR */}
-      <group ref={carRef} position={[0, 0.25, 0]}>
+      {/* THE PLAYER CAR (Starts on the track at X=8) */}
+      <group ref={carRef} position={[8, 0.25, 0]}>
         {/* Main Body */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[0.6, 0.3, 1.2]} />
