@@ -29,7 +29,7 @@ function App() {
 
       {/* LAYER 3: 3D Hand Mesh (Top) */}
       {/* Increased zIndex to 999 to cover the UI completely, while ignoring mouse clicks */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 999, pointerEvents: 'none' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 3000, pointerEvents: 'none' }}>
         <Scene handsPositionRef={handsPositionRef} />
       </div>
 
