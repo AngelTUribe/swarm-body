@@ -10,7 +10,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   const cursorRef = useRef(null);
   const topBarRef = useRef(null);
   
-  // 1. ADVANCED MEMORY BUFFERS
   const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
   const pinchMemory = useRef({ isPinching: false, releasedFrames: 0 });
 
@@ -19,17 +18,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
   const [mounted, setMounted] = useState(false);
 
   const state = useRef({
-    draggedId: null,
-    activeId: null, 
-    layout: 'central', 
-    hasLeftOrigin: false, 
-    zipperX: window.innerWidth * 0.35, 
-    isDraggingZipper: false,
-    holeCurrX: window.innerWidth / 2, 
-    holeCurrY: window.innerHeight * 0.65,
-    holeCentral: { x: 0, y: 0 },
-    holeSplit: { x: 0, y: 0 },
-    projects: {} 
+    draggedId: null, activeId: null, layout: 'central', hasLeftOrigin: false, 
+    zipperX: window.innerWidth * 0.35, isDraggingZipper: false,
+    holeCurrX: window.innerWidth / 2, holeCurrY: window.innerHeight * 0.65,
+    holeCentral: { x: 0, y: 0 }, holeSplit: { x: 0, y: 0 }, projects: {} 
   });
 
   useEffect(() => {
@@ -51,10 +43,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const sx = screenW * 0.15;
       const sy = screenH * 0.3 + (index * screenH * 0.2); 
 
-      state.current.projects[p.id] = { 
-        central: { x: cx, y: cy }, split: { x: sx, y: sy }, 
-        currX: cx, currY: cy, slotCurrX: cx, slotCurrY: cy 
-      };
+      state.current.projects[p.id] = { central: { x: cx, y: cy }, split: { x: sx, y: sy }, currX: cx, currY: cy, slotCurrX: cx, slotCurrY: cy };
     });
     setMounted(true);
   }, []);
@@ -68,73 +57,69 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
+      // === STRICT DISTANCE THRESHOLD LOCK ===
       let activeHand = null;
       let indexX = null; 
       let indexY = null; 
       let rawPinching = false;
 
-      // === 2. SPATIAL LOCK & TRACKING BUFFER ===
-      if (hands.length === 0) {
+      if (activeHandMemory.current.locked && activeHandMemory.current.position) {
+        const lastPos = activeHandMemory.current.position;
+        let bestHand = null;
+        let minDist = Infinity;
+
+        hands.forEach(h => {
+          if (!h[8]) return;
+          const dist = Math.hypot(h[8].x - lastPos.x, h[8].y - lastPos.y);
+          if (dist < minDist) { minDist = dist; bestHand = h; }
+        });
+
+        // THE FIX: Only grab the closest hand if it's actually near the last known location (< 20% of screen)
+        if (bestHand && minDist < 0.2) {
+          activeHand = bestHand;
+          activeHandMemory.current.lostFrames = 0;
+        } else {
+          activeHand = null; // Triggers ghost buffer instead of index swapping
+        }
+      } else if (hands.length > 0) {
+        activeHand = hands[0];
+        activeHandMemory.current.locked = true;
+        activeHandMemory.current.lostFrames = 0;
+      }
+
+      // === BUFFER & COASTING ===
+      if (!activeHand) {
         activeHandMemory.current.lostFrames++;
-        
-        // If we lose tracking for more than 15 frames (~250ms), reset.
         if (activeHandMemory.current.lostFrames > 15) { 
           activeHandMemory.current.locked = false;
           activeHandMemory.current.position = null;
-          state.current.draggedId = null; // Auto-drop if hand completely leaves camera
+          state.current.draggedId = null; 
         } else if (activeHandMemory.current.position) {
-          // FAKE THE HAND: Keep it exactly where it was before tracking blipped
           indexX = (1 - activeHandMemory.current.position.x) * screenW;
           indexY = activeHandMemory.current.position.y * screenH;
           rawPinching = pinchMemory.current.isPinching; 
         }
       } else {
-        activeHandMemory.current.lostFrames = 0;
-        if (!activeHandMemory.current.locked || !activeHandMemory.current.position) {
-          activeHand = hands[0];
-          activeHandMemory.current.locked = true;
-        } else {
-          const lastPos = activeHandMemory.current.position;
-          let closestHand = hands[0];
-          let minDist = Infinity;
-          hands.forEach(h => {
-            if(!h[8]) return;
-            const dist = Math.hypot(h[8].x - lastPos.x, h[8].y - lastPos.y);
-            if (dist < minDist) { minDist = dist; closestHand = h; }
-          });
-          activeHand = closestHand;
-        }
-        
-        if(activeHand && activeHand[8] && activeHand[4]) {
-            activeHandMemory.current.position = activeHand[8];
-            const thumb = activeHand[4]; 
-            const index = activeHand[8];
-            indexX = (1 - index.x) * screenW; 
-            indexY = index.y * screenH;
-            const tx = (1 - thumb.x) * screenW; 
-            const ty = thumb.y * screenH;
-            
-            // Slightly increased tolerance for grabbing
-            rawPinching = Math.hypot(tx - indexX, ty - indexY) < 60; 
-        }
+        activeHandMemory.current.position = activeHand[8];
+        const thumb = activeHand[4]; 
+        const index = activeHand[8];
+        indexX = (1 - index.x) * screenW; 
+        indexY = index.y * screenH;
+        const tx = (1 - thumb.x) * screenW; 
+        const ty = thumb.y * screenH;
+        rawPinching = Math.hypot(tx - indexX, ty - indexY) < 60; 
       }
 
-      // === 3. PINCH SLIP BUFFER ===
       if (rawPinching) {
         pinchMemory.current.isPinching = true;
         pinchMemory.current.releasedFrames = 0;
       } else {
         pinchMemory.current.releasedFrames++;
-        // Give a 10-frame grace period if fingers slip apart slightly
-        if (pinchMemory.current.releasedFrames > 10) { 
-          pinchMemory.current.isPinching = false;
-        }
+        if (pinchMemory.current.releasedFrames > 10) pinchMemory.current.isPinching = false;
       }
       const isPinching = pinchMemory.current.isPinching;
 
-      // UPDATE CURSOR UI
       if (indexX !== null) {
-          // Keep cursor green if they are actively holding a cube, even if physically un-pinched
           const showPinchUI = isPinching || state.current.draggedId !== null;
           if (cursorRef.current) {
             cursorRef.current.style.opacity = 1;
@@ -152,10 +137,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
         if (phase === 'boot' && indexX !== null) {
           const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
-          
           if (isPinching && hoveringZipper) state.current.isDraggingZipper = true;
           if (!isPinching) state.current.isDraggingZipper = false;
-          
           if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
         }
 
@@ -213,7 +196,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       });
 
-      // === PINCH DETECTION (Initial Grab) ===
       if (!state.current.draggedId && isPinching && indexX !== null) {
         for (let p of PROJECTS) {
           const pState = state.current.projects[p.id];
@@ -225,7 +207,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       }
 
-      // === 4. STICKY DRAG & MAGNETIC SNAP LOGIC ===
       if (state.current.draggedId && indexX !== null) {
         const pid = state.current.draggedId;
         const pState = state.current.projects[pid];
@@ -233,26 +214,20 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        pState.currX = indexX;
-        pState.currY = indexY;
+        pState.currX = indexX; pState.currY = indexY;
 
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
         const dropThreshold = 120; 
 
         const overValidTarget = distToHole < dropThreshold || distToSlot < dropThreshold;
-
-        // ULTRA STICKY: Only allow the cube to drop if you un-pinch WHILE hovering over a target
-        if (!isPinching && overValidTarget) {
-            state.current.draggedId = null;
-        }
+        if (!isPinching && overValidTarget) state.current.draggedId = null;
 
         if (!state.current.hasLeftOrigin) {
           if (state.current.layout === 'central' && distToSlot > 150) state.current.hasLeftOrigin = true;
           if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
         }
 
-        // Snap Logic (Triggers when the cube is successfully dropped)
         if (state.current.hasLeftOrigin && state.current.draggedId === null) {
           if (state.current.layout === 'central') {
             if (distToHole < dropThreshold) {
@@ -309,10 +284,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const pState = state.current.projects[p.id];
         if (pState.slotCurrX === undefined) return null;
         return (
-          <div key={p.id} id={`label-${p.id}`} style={{ 
-            position: 'absolute', left: pState.slotCurrX, top: pState.slotCurrY - 80, 
-            transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace',
-          }}>
+          <div key={p.id} id={`label-${p.id}`} style={{ position: 'absolute', left: pState.slotCurrX, top: pState.slotCurrY - 80, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace' }}>
             <strong>{p.title}</strong>
           </div>
         )
@@ -320,31 +292,15 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
-        <div id="execute-label" style={{ 
-          position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, 
-          transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold',
-          transition: 'opacity 0.3s'
-        }}>
+        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold', transition: 'opacity 0.3s' }}>
           DRAG HERE TO INITIALIZE
         </div>
       )}
 
       {/* EXPANDED WINDOW */}
       {expandedProject && (
-        <div style={{
-          position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', 
-          backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', 
-          borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', 
-          boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', 
-          backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out'
-        }}>
-          <div ref={topBarRef} style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', 
-            borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', 
-            backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', 
-            border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none', borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0',
-            backdropFilter: 'blur(10px)', pointerEvents: 'auto'
-          }}>
+        <div style={{ position: 'absolute', top: '10%', left: '10%', width: '80%', height: '75%', backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out' }}>
+          <div ref={topBarRef} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none', borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0', backdropFilter: 'blur(10px)', pointerEvents: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` }} />
               <span style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '1.4rem', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>

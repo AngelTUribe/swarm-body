@@ -6,9 +6,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const gameGroupRef = useRef();
   const carRef = useRef();
   
-  // THE SPATIAL LOCK MEMORY
-  const activeHandMemory = useRef({ position: null, locked: false });
-  
+  const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
   const speedRef = useRef(0);
   const angleRef = useRef(0);
 
@@ -51,63 +49,66 @@ const SpatialDrive = ({ handsPositionRef }) => {
     const hands = handsPositionRef.current?.landmarks || [];
     const screenW = window.innerWidth;
 
-    // === THE SPATIAL HAND LOCK ENGINE ===
+    // === STRICT SPATIAL LOCK ===
     let activeHand = null;
 
-    if (hands.length === 0) {
-      activeHandMemory.current.locked = false;
-      activeHandMemory.current.position = null;
-    } else if (hands.length === 1) {
+    if (activeHandMemory.current.locked && activeHandMemory.current.position) {
+      const lastPos = activeHandMemory.current.position;
+      let bestHand = null;
+      let minDist = Infinity;
+
+      hands.forEach(h => {
+        if (!h[8]) return;
+        const dist = Math.hypot(h[8].x - lastPos.x, h[8].y - lastPos.y);
+        if (dist < minDist) { minDist = dist; bestHand = h; }
+      });
+
+      if (bestHand && minDist < 0.2) {
+        activeHand = bestHand;
+        activeHandMemory.current.lostFrames = 0;
+      } else {
+        activeHand = null;
+      }
+    } else if (hands.length > 0) {
       activeHand = hands[0];
       activeHandMemory.current.locked = true;
-      activeHandMemory.current.position = activeHand[8]; 
-    } else {
-      if (!activeHandMemory.current.locked || !activeHandMemory.current.position) {
-        activeHand = hands[0];
-        activeHandMemory.current.locked = true;
-      } else {
-        const lastPos = activeHandMemory.current.position;
-        let closestHand = hands[0];
-        let minDist = Infinity;
-        hands.forEach(h => {
-          if(!h[8]) return;
-          const dist = Math.hypot(h[8].x - lastPos.x, h[8].y - lastPos.y);
-          if (dist < minDist) { minDist = dist; closestHand = h; }
-        });
-        activeHand = closestHand;
-      }
-      if(activeHand && activeHand[8]) activeHandMemory.current.position = activeHand[8];
+      activeHandMemory.current.lostFrames = 0;
     }
 
-    // === SINGLE-HAND ENGINE & STEERING ===
-    let acceleration = 0;
-    let steerInput = 0;
+    // Buffer logic
+    if (!activeHand) {
+      activeHandMemory.current.lostFrames++;
+      if (activeHandMemory.current.lostFrames > 15) {
+        activeHandMemory.current.locked = false;
+        activeHandMemory.current.position = null;
+      }
+      // If we are buffering, we skip applying steering input for this frame (it coasts)
+    } else {
+      activeHandMemory.current.position = activeHand[8];
+      
+      let acceleration = 0;
+      let steerInput = 0;
 
-    if (activeHand && activeHand[8]) {
-      // Pedals
       if (isOpenPalm(activeHand)) {
         acceleration = 0.006; 
       } else if (isFist(activeHand)) {
         acceleration = -0.004; 
       }
 
-      // Steering
       const ix = (1 - activeHand[8].x) * screenW;
       const center = screenW / 2;
-      
-      // Calculate how far left/right the hand is from the center of the screen
       const rawSteer = (center - ix) / (screenW * 0.4);
       steerInput = Math.max(-1, Math.min(1, rawSteer)); 
+
+      speedRef.current += acceleration;
+      if (Math.abs(speedRef.current) > 0.001) {
+        const directionMult = speedRef.current > 0 ? 1 : -1;
+        angleRef.current += steerInput * 0.035 * directionMult; 
+      }
     }
 
-    // === PHYSICS APPLICATION ===
-    speedRef.current += acceleration;
+    // Always apply friction and movement, even if buffering
     speedRef.current *= 0.93; 
-
-    if (Math.abs(speedRef.current) > 0.001) {
-      const directionMult = speedRef.current > 0 ? 1 : -1;
-      angleRef.current += steerInput * 0.035 * directionMult; 
-    }
 
     if (carRef.current) {
       carRef.current.rotation.y = angleRef.current;

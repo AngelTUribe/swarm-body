@@ -1,15 +1,15 @@
 import React, { useRef, useMemo } from 'react';
-import { useFrame, useThree } from '@react-three/fiber'; // <-- ADD useThree here
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 const HAND_CONNECTIONS = [
-  [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
-  [0, 5], [5, 6], [6, 7], [7, 8], // Index
-  [9, 10], [10, 11], [11, 12],    // Middle
-  [13, 14], [14, 15], [15, 16],   // Ring
-  [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
-  [5, 9], [9, 13], [13, 17], // Knuckles
-  [0, 9], [0, 13] // Palm inner structure
+  [0, 1], [1, 2], [2, 3], [3, 4], 
+  [0, 5], [5, 6], [6, 7], [7, 8], 
+  [9, 10], [10, 11], [11, 12],    
+  [13, 14], [14, 15], [15, 16],   
+  [0, 17], [17, 18], [18, 19], [19, 20], 
+  [5, 9], [9, 13], [13, 17], 
+  [0, 9], [0, 13] 
 ];
 
 const getThickness = (jointIndex) => {
@@ -25,7 +25,6 @@ const getThickness = (jointIndex) => {
   return 0.25; 
 };
 
-// FIX 1: Lowered default count to 6000 to instantly fix the lag
 const Swarm = ({ handsPositionRef, count = 6000 }) => {
   const pointsRef = useRef();
   const { viewport } = useThree();
@@ -42,8 +41,6 @@ const Swarm = ({ handsPositionRef, count = 6000 }) => {
       handAssignments[i] = Math.random() > 0.5 ? 0 : 1;
       assignments[i] = Math.floor(Math.random() * HAND_CONNECTIONS.length);
       tValues[i] = Math.random(); 
-      
-      // Give each particle a slightly different smoothing speed for an organic feel
       speeds[i] = 0.15 + Math.random() * 0.1; 
 
       const u = Math.random();
@@ -68,11 +65,11 @@ const Swarm = ({ handsPositionRef, count = 6000 }) => {
       const i3 = i * 3;
       const speed = speeds[i];
 
-      // If hand is off-screen, smoothly float the particles behind the camera
+      // THE FIX: Gently coast and disperse instead of blasting into the camera (Z=10)
       if (!allHands[handIndex]) {
-        positions[i3] += (0 - positions[i3]) * 0.05;
-        positions[i3 + 1] += (0 - positions[i3 + 1]) * 0.05;
-        positions[i3 + 2] += (10 - positions[i3 + 2]) * 0.05; 
+        positions[i3] += offsets[i3] * 0.015;
+        positions[i3 + 1] += offsets[i3 + 1] * 0.015;
+        positions[i3 + 2] += offsets[i3 + 2] * 0.015; 
         continue;
       }
 
@@ -102,13 +99,10 @@ const Swarm = ({ handsPositionRef, count = 6000 }) => {
       const thicknessB = getThickness(endIdx);
       const currentThickness = thicknessA + (thicknessB - thicknessA) * t;
 
-      // Calculate where the particle WANTS to be
       const targetX = centerX + (offsets[i3] * currentThickness);
       const targetY = centerY + (offsets[i3 + 1] * currentThickness);
       const targetZ = centerZ + (offsets[i3 + 2] * currentThickness);
 
-      // FIX 2: THE SHOCK ABSORBER (Lerping)
-      // Instead of teleporting, smoothly move a fraction of the distance
       positions[i3] += (targetX - positions[i3]) * speed;
       positions[i3 + 1] += (targetY - positions[i3 + 1]) * speed;
       positions[i3 + 2] += (targetZ - positions[i3 + 2]) * speed;
@@ -120,21 +114,9 @@ const Swarm = ({ handsPositionRef, count = 6000 }) => {
   return (
     <points ref={pointsRef} frustumCulled={false}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
-        />
+        <bufferAttribute attach="attributes-position" count={positions.length / 3} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial
-        size={0.07}      
-        color="#00ffff"  
-        transparent
-        opacity={0.8}    
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
+      <pointsMaterial size={0.07} color="#00ffff" transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} />
     </points>
   );
 };
