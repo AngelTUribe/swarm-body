@@ -197,34 +197,39 @@ const PortfolioUI = ({ handsPositionRef }) => {
       }
 
       // === BOOT PHASE ===
-      if (phase === 'boot' || phase === 'transition') {
-        const startX = screenW * 0.35; const endX = screenW * 0.65;
-        const maskPath = document.getElementById('ar-mask-path');
-
-        if (phase === 'boot' && indexX !== null) {
-          const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
-          if (finalIsPinching && hoveringZipper) state.current.isDraggingZipper = true;
-          if (!finalIsPinching) state.current.isDraggingZipper = false;
-          if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
+        if (phase === 'boot' || phase === 'transition') {
+          const startX = screenW * 0.35; const endX = screenW * 0.65;
+          const maskPath = document.getElementById('ar-mask-path');
+  
+          if (phase === 'boot' && indexX !== null) {
+            const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
+            if (finalIsPinching && hoveringZipper) state.current.isDraggingZipper = true;
+            if (!finalIsPinching) state.current.isDraggingZipper = false;
+            if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
+          }
+  
+          const pullProgress = Math.max(0, (state.current.zipperX - startX) / (endX - startX));
+          handsPositionRef.current.zipperState = { x: state.current.zipperX, progress: pullProgress, phase };
+  
+          if (maskPath) {
+            const zx = state.current.zipperX; const gap = pullProgress * (screenH * 0.6); 
+            maskPath.setAttribute('d', `M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z M 0 ${screenH/2 - gap} Q ${zx/2} ${screenH/2 - gap} ${zx} ${screenH/2} Q ${zx/2} ${screenH/2 + gap} 0 ${screenH/2 + gap} Z`);
+          }
+  
+          const zipperEl = document.getElementById('zipper-handle');
+          if (zipperEl) zipperEl.style.transform = `translate(${state.current.zipperX}px, -50%)`;
+  
+          if (state.current.zipperX > endX && phase === 'boot') {
+            setPhase('transition'); 
+            
+            // THE FIX: Force the zipper drag state to false so the hand unlocks!
+            state.current.isDraggingZipper = false; 
+            
+            if (maskPath) maskPath.style.opacity = '0'; 
+            setTimeout(() => setPhase('main'), 1200); 
+          }
+          animationFrameId = requestAnimationFrame(updateLoop); return; 
         }
-
-        const pullProgress = Math.max(0, (state.current.zipperX - startX) / (endX - startX));
-        handsPositionRef.current.zipperState = { x: state.current.zipperX, progress: pullProgress, phase };
-
-        if (maskPath) {
-          const zx = state.current.zipperX; const gap = pullProgress * (screenH * 0.6); 
-          maskPath.setAttribute('d', `M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z M 0 ${screenH/2 - gap} Q ${zx/2} ${screenH/2 - gap} ${zx} ${screenH/2} Q ${zx/2} ${screenH/2 + gap} 0 ${screenH/2 + gap} Z`);
-        }
-
-        const zipperEl = document.getElementById('zipper-handle');
-        if (zipperEl) zipperEl.style.transform = `translate(${state.current.zipperX}px, -50%)`;
-
-        if (state.current.zipperX > endX && phase === 'boot') {
-          setPhase('transition'); if (maskPath) maskPath.style.opacity = '0'; 
-          setTimeout(() => setPhase('main'), 1200); 
-        }
-        animationFrameId = requestAnimationFrame(updateLoop); return; 
-      }
 
       handsPositionRef.current.zipperState = { phase: 'main' };
 
