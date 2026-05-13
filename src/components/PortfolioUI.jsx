@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import VoxelBuilder from './VoxelBuilder';
+import NeonBuilder from './NeonBuilder';
 
 const PROJECTS = [
   { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
