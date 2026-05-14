@@ -407,13 +407,13 @@ const SpatialDrive = ({ handsPositionRef }) => {
             {`LAPS: ${laps}`}
         </Text>
 
-        <points ref={particlesRef}>
-            <bufferGeometry>
-                {/* THE FIX: Use the stable particlePositions array so it persists on re-renders */}
-                <bufferAttribute attach="attributes-position" count={particleCount} array={particlePositions} itemSize={3} />
-            </bufferGeometry>
-            <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
-        </points>
+        <points ref={particlesRef} frustumCulled={false}>
+    <bufferGeometry>
+        {/* THE FIX: Use the stable particlePositions array so it persists on re-renders */}
+        <bufferAttribute attach="attributes-position" count={particleCount} array={particlePositions} itemSize={3} />
+    </bufferGeometry>
+    <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+</points>
 
         <group ref={carRef} position={[-2, 0.3, (innerRadius + outerRadius) / 2]}>
             <mesh position={[0, 0, 0]}>
