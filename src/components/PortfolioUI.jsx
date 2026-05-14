@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 const PROJECTS = [
   { id: 'p1', title: 'Interactive Portfolio', subtitle: 'WEB.DEV // 01', url: 'https://angelturibe.github.io/my-portfolio/' },
-  { id: 'p2', title: 'Engineering Resume', subtitle: 'DOC.SYS // 02', url: 'resume.pdf' },
-  { id: 'p3', title: 'Spatial Game', subtitle: 'SYS.RENDER // 03', url: 'about:blank' },
+  { id: 'p2', title: 'My Resume', subtitle: 'DOC.SYS // 02', url: 'resume.pdf' },
+  { id: 'p3', title: 'Car game!', subtitle: 'SYS.RENDER // 03', url: 'about:blank' },
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
