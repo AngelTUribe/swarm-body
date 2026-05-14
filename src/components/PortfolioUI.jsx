@@ -79,6 +79,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       }).filter(Boolean);
 
       // === ACTION PHASE: HARD LOCK ===
+      // === ACTION PHASE: HARD LOCK ===
       if (isLocked) {
         if (activeHandMemory.current.position) {
           const lastPos = activeHandMemory.current.position;
@@ -95,9 +96,14 @@ const PortfolioUI = ({ handsPositionRef }) => {
           }
         }
 
+        // 1. HAND TRACKING LOSS BUFFER
         if (!activeHand) {
           activeHandMemory.current.lostFrames++;
-          if (activeHandMemory.current.lostFrames > 15) {
+          
+          // DYNAMIC TOLERANCE: Wait up to 60 frames (1 full second) if holding a block!
+          const lostThreshold = state.current.draggedId ? 60 : 15; 
+          
+          if (activeHandMemory.current.lostFrames > lostThreshold) {
             activeHandMemory.current.locked = false;
             isLocked = false;
             activeHandMemory.current.position = null;
@@ -105,6 +111,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
             state.current.isDraggingZipper = false;
             pinchMemory.current.isPinching = false; 
           } else if (activeHandMemory.current.position) {
+            // Keep the cursor frozen exactly where we last saw it
             indexX = (1 - activeHandMemory.current.position.x) * screenW;
             indexY = activeHandMemory.current.position.y * screenH;
           }
@@ -113,13 +120,18 @@ const PortfolioUI = ({ handsPositionRef }) => {
           indexX = activeHand.ix;
           indexY = activeHand.iy;
 
-          // Slip Buffer updates ONLY for the locked hand
+          // 2. PINCH SLIPPAGE BUFFER
           if (activeHand.isPinching) {
             pinchMemory.current.isPinching = true;
             pinchMemory.current.releasedFrames = 0;
           } else {
             pinchMemory.current.releasedFrames++;
-            if (pinchMemory.current.releasedFrames > 10) pinchMemory.current.isPinching = false;
+            
+            // DYNAMIC TOLERANCE: Give the user 30 frames to fix their pinch before dropping
+            const pinchThreshold = state.current.draggedId ? 30 : 10;
+            if (pinchMemory.current.releasedFrames > pinchThreshold) {
+                pinchMemory.current.isPinching = false;
+            }
           }
         }
 
