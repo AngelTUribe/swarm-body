@@ -9,6 +9,12 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const carRef = useRef();
   const steeringWheelRef = useRef();
   
+  // New Pedal Refs
+  const gasPedalRef = useRef();
+  const brakePedalRef = useRef();
+  const isGasRef = useRef(false);
+  const isBrakeRef = useRef(false);
+  
   const ambientLightRef = useRef();
   const dirLightRef = useRef();
   
@@ -77,6 +83,18 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
+  // NEW: Fitted Outer Grass Shape
+  const outerGrassShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    const padR = outerRadius + 6; // Hugs the track nicely
+    shape.moveTo(-straightLength, padR);
+    shape.lineTo(straightLength, padR);
+    shape.absarc(straightLength, 0, padR, Math.PI/2, -Math.PI/2, true);
+    shape.lineTo(-straightLength, -padR);
+    shape.absarc(-straightLength, 0, padR, -Math.PI/2, Math.PI/2, true);
+    return shape;
+  }, [straightLength, outerRadius]);
+
   const outerWallShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(-straightLength, outerRadius + 0.4);
@@ -112,6 +130,32 @@ const SpatialDrive = ({ handsPositionRef }) => {
     shape.holes.push(hole);
     return shape;
   }, [straightLength, innerRadius]);
+
+  // NEW: Procedural Arrows for Track Direction
+  const trackArrows = useMemo(() => {
+    const arr = [];
+    const midR = (innerRadius + outerRadius) / 2; 
+    
+    // Top Straight (Moving Right)
+    arr.push({ pos: [-3, -0.08, midR], angle: Math.PI/2 });
+    arr.push({ pos: [3, -0.08, midR], angle: Math.PI/2 });
+    
+    // Right Curve
+    arr.push({ pos: [straightLength + midR * 0.707, -0.08, midR * 0.707], angle: 3*Math.PI/4 });
+    arr.push({ pos: [straightLength + midR, -0.08, 0], angle: Math.PI }); 
+    arr.push({ pos: [straightLength + midR * 0.707, -0.08, -midR * 0.707], angle: 5*Math.PI/4 });
+    
+    // Bottom Straight (Moving Left)
+    arr.push({ pos: [3, -0.08, -midR], angle: 3*Math.PI/2 });
+    arr.push({ pos: [-3, -0.08, -midR], angle: 3*Math.PI/2 });
+    
+    // Left Curve
+    arr.push({ pos: [-straightLength - midR * 0.707, -0.08, -midR * 0.707], angle: 7*Math.PI/4 });
+    arr.push({ pos: [-straightLength - midR, -0.08, 0], angle: 0 });
+    arr.push({ pos: [-straightLength - midR * 0.707, -0.08, midR * 0.707], angle: Math.PI/4 });
+    
+    return arr;
+  }, [straightLength, innerRadius, outerRadius]);
 
   const isFist = (hand) => {
     const wrist = hand[0];
@@ -182,6 +226,10 @@ const SpatialDrive = ({ handsPositionRef }) => {
     }
 
     let steerInput = 0;
+    
+    // Reset pedal logic
+    isGasRef.current = false;
+    isBrakeRef.current = false;
 
     if (!activeHand) {
       activeHandMemory.current.lostFrames++;
@@ -193,8 +241,14 @@ const SpatialDrive = ({ handsPositionRef }) => {
       activeHandMemory.current.position = activeHand[8];
       
       let acceleration = 0;
-      if (isOpenPalm(activeHand)) acceleration = 0.007; 
-      else if (isFist(activeHand)) acceleration = -0.005; 
+      if (isOpenPalm(activeHand)) {
+          acceleration = 0.007; 
+          isGasRef.current = true;
+      } 
+      else if (isFist(activeHand)) {
+          acceleration = -0.005; 
+          isBrakeRef.current = true;
+      }
 
       const ix = (1 - activeHand[8].x) * screenW;
       
@@ -212,9 +266,20 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     speedRef.current *= 0.92; 
 
+    // Handle Wheel Animation
     if (steeringWheelRef.current) {
         const targetRotation = -steerInputRef.current * Math.PI * 0.6;
         steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * 0.15;
+    }
+    
+    // Handle Pedal Animations
+    if (gasPedalRef.current) {
+        const target = isGasRef.current ? Math.PI / 6 : 0;
+        gasPedalRef.current.rotation.x += (target - gasPedalRef.current.rotation.x) * 0.2;
+    }
+    if (brakePedalRef.current) {
+        const target = isBrakeRef.current ? Math.PI / 6 : 0;
+        brakePedalRef.current.rotation.x += (target - brakePedalRef.current.rotation.x) * 0.2;
     }
 
     if (carRef.current) {
@@ -293,12 +358,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      {/* THE FIX: Changed rotation to POSITIVE Math.PI / 5. This tilts the BACK of the track UP instead of DOWN. */}
       <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.28} rotation={[Math.PI / 5, 0, 0]} visible={false}>
         
-        {/* Outer Environment / Grass */}
+        {/* NEW FITTED OUTER GRASS */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
-            <circleGeometry args={[25, 64]} />
+            <shapeGeometry args={[outerGrassShape]} />
             <meshStandardMaterial color="#7ec850" roughness={1} />
         </mesh>
 
@@ -313,6 +377,18 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <shapeGeometry args={[trackShape]} />
             <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
+        
+        {/* NEW: Directional Arrows */}
+        <group>
+            {trackArrows.map((arr, i) => (
+                <group key={`arrow-${i}`} position={arr.pos} rotation={[0, arr.angle, 0]}>
+                    <mesh rotation={[Math.PI/2, 0, 0]}>
+                        <coneGeometry args={[0.5, 1.2, 3]} />
+                        <meshStandardMaterial color="#00ffcc" />
+                    </mesh>
+                </group>
+            ))}
+        </group>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
            <extrudeGeometry args={[outerWallShape, { depth: 0.6, bevelEnabled: false }]} />
@@ -333,7 +409,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
         {/* 3D LAP TEXT HUD */}
         <Text
             position={[0, 6, -5]}
-            rotation={[-Math.PI / 5, 0, 0]} // Cancels the parent tilt so it perfectly faces the camera
+            rotation={[-Math.PI / 5, 0, 0]} 
             fontSize={3}
             color="#00ffcc"
             font="FiraMono-Regular.ttf"
@@ -351,7 +427,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
         </points>
 
-        {/* CUTE CAR MODEL: Starts slightly behind the finish line now (-2 X) */}
+        {/* CUTE CAR MODEL */}
         <group ref={carRef} position={[-2, 0.3, (innerRadius + outerRadius) / 2]}>
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
@@ -377,6 +453,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
       </group>
 
       <group ref={wheelGroupRef} position={[2.5, -1.2, 2]} visible={false}>
+          {/* Steering Wheel */}
           <group ref={steeringWheelRef}>
             <mesh>
               <torusGeometry args={[0.8, 0.1, 16, 48]} />
@@ -390,6 +467,39 @@ const SpatialDrive = ({ handsPositionRef }) => {
               <cylinderGeometry args={[0.2, 0.2, 0.1, 32]} rotation={[Math.PI / 2, 0, 0]} />
               <meshStandardMaterial color="#ff6b6b" />
             </mesh>
+          </group>
+
+          {/* NEW: Animated Pedals System */}
+          <group position={[1.5, -0.5, 0]}>
+            {/* Left Gas Pedal */}
+            <group position={[-0.3, 0, 0]}>
+               <group ref={gasPedalRef}>
+                 <mesh position={[0, -0.3, 0.05]}>
+                   <boxGeometry args={[0.2, 0.6, 0.05]} />
+                   <meshStandardMaterial color="#00ffcc" />
+                 </mesh>
+               </group>
+               {/* Base Pivot */}
+               <mesh position={[0, 0, -0.05]}>
+                   <boxGeometry args={[0.1, 0.1, 0.2]} />
+                   <meshStandardMaterial color="#555555" />
+               </mesh>
+            </group>
+            
+            {/* Right Brake Pedal */}
+            <group position={[0.3, 0, 0]}>
+               <group ref={brakePedalRef}>
+                 <mesh position={[0, -0.2, 0.05]}>
+                   <boxGeometry args={[0.4, 0.4, 0.05]} />
+                   <meshStandardMaterial color="#ff00ff" />
+                 </mesh>
+               </group>
+               {/* Base Pivot */}
+               <mesh position={[0, 0, -0.05]}>
+                   <boxGeometry args={[0.1, 0.1, 0.2]} />
+                   <meshStandardMaterial color="#555555" />
+               </mesh>
+            </group>
           </group>
       </group>
       
