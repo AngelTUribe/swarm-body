@@ -111,7 +111,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
           {/* Inner Wireframe Core */}
           <mesh>
             <boxGeometry args={[0.8, 0.8, 0.8]} />
-            <meshBasicMaterial color="#B3EBF2" wireframe />
+            <meshBasicMaterial color="#0c7b8a" wireframe />
           </mesh>
 
           {/* FRONT FACE TEXT */}
@@ -119,7 +119,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
             <Text
               position={[0, 0.15, 0]}
               fontSize={0.16}
-              color="#000000"
+              color="#ffffff"
               font="FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
