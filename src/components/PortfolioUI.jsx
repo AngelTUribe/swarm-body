@@ -535,6 +535,16 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
+{/* DATA TETHER (Spiderweb) */}
+      {expandedProject && (
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 250, filter: 'drop-shadow(0 0 8px #00ffcc)' }}>
+          <path id="tether-path-1" className="data-tether" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="2" fill="none" strokeDasharray="4 6" />
+          <path id="tether-path-2" className="data-tether-fast" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="1" fill="none" />
+          <path id="tether-path-3" className="data-tether" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="1.5" fill="none" />
+          <path id="tether-path-4" className="data-tether-fast" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="3" fill="none" strokeDasharray="10 15" />
+        </svg>
+      )}
+
       {/* EXPANDED WINDOW */}
       {expandedProject && (
         <div style={{ 
