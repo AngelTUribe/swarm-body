@@ -30,6 +30,13 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const particlesRef = useRef();
   const pData = useRef(Array.from({length: particleCount}, () => ({ x:1000, y:1000, z:1000, vx:0, vy:0, vz:0, life: 0 })));
 
+  // THE FIX: Memoize the Float32Array so it doesn't get destroyed when setLaps triggers a re-render
+  const particlePositions = useMemo(() => {
+    const arr = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i++) arr[i] = 1000;
+    return arr;
+  }, [particleCount]);
+
   const straightLength = 6;
   const innerRadius = 4;
   const outerRadius = 9;
@@ -174,9 +181,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   useFrame(() => {
     const uiState = handsPositionRef.current?.uiState;
-    
-    // THE FIX: Strict Boolean conversion guarantees this evaluates to `false` 
-    // even if uiState is undefined during the initial boot phase!
     const isActive = Boolean(uiState && uiState.expandedId === 'p3');
 
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
@@ -405,7 +409,8 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
         <points ref={particlesRef}>
             <bufferGeometry>
-                <bufferAttribute attach="attributes-position" count={particleCount} array={new Float32Array(particleCount * 3)} itemSize={3} />
+                {/* THE FIX: Use the stable particlePositions array so it persists on re-renders */}
+                <bufferAttribute attach="attributes-position" count={particleCount} array={particlePositions} itemSize={3} />
             </bufferGeometry>
             <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
         </points>
