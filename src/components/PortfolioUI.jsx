@@ -34,7 +34,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     const angles = [-60, 0, 60]; 
 
     state.current.holeCentral = { x: screenW / 2, y: centerY };
-    state.current.holeSplit = { x: screenW * 0.85, y: screenH * 0.5 }; 
+    state.current.holeSplit = { x: screenW * 0.25, y: screenH * 0.5 }; 
     state.current.holeCurrX = screenW / 2;
     state.current.holeCurrY = centerY;
 
@@ -42,7 +42,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const rad = (angles[index] - 90) * (Math.PI / 180);
       const cx = (screenW / 2) + radius * Math.cos(rad); 
       const cy = centerY + radius * Math.sin(rad); 
-      const sx = screenW * 0.15;
+      const sx = screenW * 0.10;
       const sy = screenH * 0.3 + (index * screenH * 0.2); 
 
       state.current.projects[p.id] = { 
@@ -512,7 +512,25 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       {/* EXPANDED WINDOW */}
       {expandedProject && (
-        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '50vw', height: '70vh', backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', borderRadius: '16px', border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', zIndex: 300, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: '15%', 
+          // CHANGE 3: Pin to the right and remove the center transform
+          right: '5%', 
+          left: 'auto',
+          transform: 'none', 
+          width: '60vw', // Expanded slightly to fill the right side nicely
+          height: '70vh', 
+          backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', 
+          borderRadius: '16px', 
+          border: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.5)', 
+          boxShadow: expandedProject.id === 'p3' ? 'none' : '0 0 80px rgba(0, 255, 204, 0.2)', 
+          backdropFilter: expandedProject.id === 'p3' ? 'none' : 'blur(20px)', 
+          zIndex: 300, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          animation: 'fadeIn 0.3s ease-out' 
+        }}>
           <div ref={topBarRef} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 25px', borderBottom: expandedProject.id === 'p3' ? 'none' : '1px solid rgba(0, 255, 204, 0.2)', backgroundColor: expandedProject.id === 'p3' ? 'rgba(255, 0, 255, 0.15)' : 'rgba(0, 255, 204, 0.05)', border: expandedProject.id === 'p3' ? '1px solid #ff00ff' : 'none', borderRadius: expandedProject.id === 'p3' ? '16px' : '16px 16px 0 0', backdropFilter: 'blur(10px)', pointerEvents: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', boxShadow: `0 0 15px ${expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'}` }} />
