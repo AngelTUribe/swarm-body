@@ -360,7 +360,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
-        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 70, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold', transition: 'opacity 0.3s' }}>
+        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 80, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold', transition: 'opacity 0.3s' }}>
           DRAG HERE TO INITIALIZE
         </div>
       )}
