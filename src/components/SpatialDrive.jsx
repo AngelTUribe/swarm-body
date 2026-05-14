@@ -1,22 +1,74 @@
-import React, { useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 const SpatialDrive = ({ handsPositionRef }) => {
-  const { viewport } = useThree();
   const gameGroupRef = useRef();
   const wheelGroupRef = useRef();
   const carRef = useRef();
   const steeringWheelRef = useRef();
   
+  // Light refs to fix the boot screen flash
+  const ambientLightRef = useRef();
+  const dirLightRef = useRef();
+  
   const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
   const speedRef = useRef(0);
   const angleRef = useRef(0);
-  const steerInputRef = useRef(0); // Track steering for the UI wheel
+  const steerInputRef = useRef(0); 
 
-  // Track Dimensions
-  const innerRadius = 6;
-  const outerRadius = 12;
+  // NASCAR Oval Track Dimensions
+  const straightLength = 6;
+  const innerRadius = 4;
+  const outerRadius = 9;
+
+  // Procedural Checkered Flag Texture
+  const checkerTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillRect(64, 64, 64, 64);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.5, 4); // Stretch to fit the track width nicely
+    return texture;
+  }, []);
+
+  // Oval Track Shapes
+  const trackShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-straightLength, outerRadius);
+    shape.lineTo(straightLength, outerRadius);
+    shape.absarc(straightLength, 0, outerRadius, Math.PI/2, -Math.PI/2, true);
+    shape.lineTo(-straightLength, -outerRadius);
+    shape.absarc(-straightLength, 0, outerRadius, -Math.PI/2, Math.PI/2, true);
+
+    const hole = new THREE.Path();
+    hole.moveTo(-straightLength, innerRadius);
+    hole.lineTo(straightLength, innerRadius);
+    hole.absarc(straightLength, 0, innerRadius, Math.PI/2, -Math.PI/2, true);
+    hole.lineTo(-straightLength, -innerRadius);
+    hole.absarc(-straightLength, 0, innerRadius, -Math.PI/2, Math.PI/2, true);
+    shape.holes.push(hole);
+    return shape;
+  }, [straightLength, innerRadius, outerRadius]);
+
+  const grassShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-straightLength, innerRadius);
+    shape.lineTo(straightLength, innerRadius);
+    shape.absarc(straightLength, 0, innerRadius, Math.PI/2, -Math.PI/2, true);
+    shape.lineTo(-straightLength, -innerRadius);
+    shape.absarc(-straightLength, 0, innerRadius, -Math.PI/2, Math.PI/2, true);
+    return shape;
+  }, [straightLength, innerRadius]);
 
   const isFist = (hand) => {
     const wrist = hand[0];
@@ -46,8 +98,12 @@ const SpatialDrive = ({ handsPositionRef }) => {
     const uiState = handsPositionRef.current?.uiState;
     const isActive = uiState && uiState.expandedId === 'p3';
 
+    // Toggle visibility AND light intensity so the glass cubes don't flash on boot
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
     if (wheelGroupRef.current) wheelGroupRef.current.visible = isActive;
+    if (ambientLightRef.current) ambientLightRef.current.intensity = isActive ? 0.6 : 0;
+    if (dirLightRef.current) dirLightRef.current.intensity = isActive ? 1.5 : 0;
+
     if (!isActive) return;
 
     const hands = handsPositionRef.current?.landmarks || [];
@@ -74,7 +130,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
         activeHand = null;
       }
     } else if (hands.length > 0) {
-      // Find the hand furthest to the right on the screen (physical right hand due to mirror)
       activeHand = hands.reduce((rightmost, current) => {
         const currentScreenX = (1 - current[0].x) * screenW;
         const rightmostScreenX = (1 - rightmost[0].x) * screenW;
@@ -86,7 +141,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     let steerInput = 0;
 
-    // Buffer logic
     if (!activeHand) {
       activeHandMemory.current.lostFrames++;
       if (activeHandMemory.current.lostFrames > 15) {
@@ -97,19 +151,16 @@ const SpatialDrive = ({ handsPositionRef }) => {
       activeHandMemory.current.position = activeHand[8];
       
       let acceleration = 0;
-
-      if (isOpenPalm(activeHand)) {
-        acceleration = 0.007; 
-      } else if (isFist(activeHand)) {
-        acceleration = -0.005; 
-      }
+      if (isOpenPalm(activeHand)) acceleration = 0.007; 
+      else if (isFist(activeHand)) acceleration = -0.005; 
 
       const ix = (1 - activeHand[8].x) * screenW;
-      const center = screenW / 2;
-      // Calculate steering based on distance from center
-      const rawSteer = (center - ix) / (screenW * 0.35);
+      
+      // Right-Hemisphere Steering: The neutral point is 75% across the screen
+      const steeringCenter = screenW * 0.75;
+      const rawSteer = (steeringCenter - ix) / (screenW * 0.20);
       steerInput = Math.max(-1, Math.min(1, rawSteer)); 
-      steerInputRef.current = steerInput; // Save for the UI wheel
+      steerInputRef.current = steerInput; 
 
       speedRef.current += acceleration;
       if (Math.abs(speedRef.current) > 0.001) {
@@ -118,35 +169,32 @@ const SpatialDrive = ({ handsPositionRef }) => {
       }
     }
 
-    // Always apply friction
     speedRef.current *= 0.92; 
 
-    // Animate UI Steering Wheel
     if (steeringWheelRef.current) {
-        // Rotate smoothly toward the current steering input
         const targetRotation = -steerInputRef.current * Math.PI * 0.6;
         steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * 0.15;
     }
 
-    // Move Car
     if (carRef.current) {
       carRef.current.rotation.y = angleRef.current;
       
       const nextX = carRef.current.position.x + Math.sin(angleRef.current) * speedRef.current;
       const nextZ = carRef.current.position.z + Math.cos(angleRef.current) * speedRef.current;
 
-      const distFromCenter = Math.hypot(nextX, nextZ);
+      // NASCAR Oval Collision Math
+      const clampedX = Math.max(-straightLength, Math.min(straightLength, nextX));
+      const distFromCenter = Math.hypot(nextX - clampedX, nextZ);
 
-      // Track Collisions
-      if (distFromCenter < innerRadius + 0.5) {
-        const bounceAngle = Math.atan2(nextX, nextZ);
-        carRef.current.position.x = Math.sin(bounceAngle) * (innerRadius + 0.5);
-        carRef.current.position.z = Math.cos(bounceAngle) * (innerRadius + 0.5);
+      if (distFromCenter < innerRadius + 0.4) {
+        const bounceAngle = Math.atan2(nextZ, nextX - clampedX);
+        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (innerRadius + 0.4);
+        carRef.current.position.z = Math.sin(bounceAngle) * (innerRadius + 0.4);
         speedRef.current *= 0.6; 
-      } else if (distFromCenter > outerRadius - 0.5) {
-        const bounceAngle = Math.atan2(nextX, nextZ);
-        carRef.current.position.x = Math.sin(bounceAngle) * (outerRadius - 0.5);
-        carRef.current.position.z = Math.cos(bounceAngle) * (outerRadius - 0.5);
+      } else if (distFromCenter > outerRadius - 0.4) {
+        const bounceAngle = Math.atan2(nextZ, nextX - clampedX);
+        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (outerRadius - 0.4);
+        carRef.current.position.z = Math.sin(bounceAngle) * (outerRadius - 0.4);
         speedRef.current *= 0.6; 
       } else {
         carRef.current.position.x = nextX;
@@ -157,45 +205,47 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      {/* THE WORLD / TRACK */}
-      <group ref={gameGroupRef} position={[0, -2, -12]} rotation={[-Math.PI / 3.5, 0, 0]} visible={false}>
+      <group ref={gameGroupRef} position={[0, -2, -12]} rotation={[-Math.PI / 4.5, 0, 0]} visible={false}>
         
-        {/* Grass Background */}
+        {/* Outer Environment / Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
             <circleGeometry args={[25, 64]} />
             <meshBasicMaterial color="#7ec850" />
         </mesh>
 
-        {/* Asphalt Track */}
+        {/* Inner Grass */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+            <shapeGeometry args={[grassShape]} />
+            <meshStandardMaterial color="#68ab40" />
+        </mesh>
+
+        {/* Asphalt Oval Track */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-            <ringGeometry args={[innerRadius, outerRadius, 64]} />
-            <meshBasicMaterial color="#333333" />
+            <shapeGeometry args={[trackShape]} />
+            <meshStandardMaterial color="#333333" />
         </mesh>
 
-        {/* Dashed Center Line */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, 0]}>
-            <ringGeometry args={[8.9, 9.1, 64, 1, 0, Math.PI * 2]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.5} wireframe />
+        {/* Walls (Visuals matching the math) */}
+        {/* Outer Wall */}
+        <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+           <capsuleGeometry args={[outerRadius + 0.2, straightLength * 2, 8, 32]} />
+           <meshStandardMaterial color="#ffffff" />
+        </mesh>
+        {/* Inner Wall */}
+        <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+           <capsuleGeometry args={[innerRadius - 0.2, straightLength * 2, 8, 32]} />
+           <meshStandardMaterial color="#ff0000" />
         </mesh>
 
-        {/* Inner/Outer Curbs (Borders) */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[outerRadius, outerRadius + 0.4, 64]} />
-            <meshBasicMaterial color="#ffffff" />
-        </mesh>
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[innerRadius - 0.4, innerRadius, 64]} />
-            <meshBasicMaterial color="#ff0000" />
-        </mesh>
-
-        {/* Start/Finish Line */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[9, -0.08, 0]}>
-            <planeGeometry args={[6, 1]} />
-            <meshBasicMaterial color="#ffffff" wireframe />
+        {/* Checkered Start/Finish Line */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, (innerRadius + outerRadius) / 2]}>
+            <planeGeometry args={[2, outerRadius - innerRadius]} />
+            <meshStandardMaterial map={checkerTexture} />
         </mesh>
 
         {/* CUTE CAR MODEL */}
-        <group ref={carRef} position={[9, 0.3, 0]}>
+        {/* Spawn point centered on the track oval */}
+        <group ref={carRef} position={[0, 0.3, (innerRadius + outerRadius) / 2]} rotation={[0, Math.PI / 2, 0]}>
             {/* Main Body */}
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
@@ -208,7 +258,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
                 <meshStandardMaterial color="#4ecdc4" transparent opacity={0.8} />
             </mesh>
 
-            {/* Headlights */}
+            {/* Headlights (+Z is forward) */}
             <mesh position={[0.25, 0, 0.71]}>
                 <circleGeometry args={[0.1, 16]} />
                 <meshBasicMaterial color="#ffe66d" />
@@ -218,23 +268,19 @@ const SpatialDrive = ({ handsPositionRef }) => {
                 <meshBasicMaterial color="#ffe66d" />
             </mesh>
 
-            {/* Wheels */}
-            {/* Front Left */}
+            {/* Tires */}
             <mesh position={[0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
                 <meshBasicMaterial color="#111111" />
             </mesh>
-            {/* Front Right */}
             <mesh position={[-0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
                 <meshBasicMaterial color="#111111" />
             </mesh>
-            {/* Back Left */}
             <mesh position={[0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
                 <meshBasicMaterial color="#111111" />
             </mesh>
-            {/* Back Right */}
             <mesh position={[-0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
                 <meshBasicMaterial color="#111111" />
@@ -243,31 +289,27 @@ const SpatialDrive = ({ handsPositionRef }) => {
       </group>
 
       {/* 2D HUD OVERLAY (Steering Wheel) */}
-      <group ref={wheelGroupRef} visible={false}>
-        <group position={[-viewport.width / 2 + 1.5, -viewport.height / 2 + 1.5, 2]}>
+      {/* Placed at a fixed camera coordinate so it never disappears off screen */}
+      <group ref={wheelGroupRef} position={[-2.5, -1.5, 2]} visible={false}>
           <group ref={steeringWheelRef}>
-            {/* Wheel Outer Ring */}
             <mesh>
               <torusGeometry args={[0.8, 0.1, 16, 48]} />
               <meshBasicMaterial color="#333333" />
             </mesh>
-            {/* Wheel Center Spoke */}
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[1.6, 0.15, 0.05]} />
               <meshBasicMaterial color="#555555" />
             </mesh>
-            {/* Center Horn */}
             <mesh position={[0, 0, 0.05]}>
               <cylinderGeometry args={[0.2, 0.2, 0.1, 32]} rotation={[Math.PI / 2, 0, 0]} />
               <meshBasicMaterial color="#ff6b6b" />
             </mesh>
           </group>
-        </group>
       </group>
       
-      {/* Required for the cute car materials to show up properly */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 20, 10]} intensity={1.5} />
+      {/* Dynamic Lights */}
+      <ambientLight ref={ambientLightRef} intensity={0} />
+      <directionalLight ref={dirLightRef} position={[10, 20, 10]} intensity={0} />
     </>
   );
 };
