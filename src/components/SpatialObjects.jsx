@@ -119,7 +119,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
             <Text
               position={[0, 0.15, 0]}
               fontSize={0.16}
-              color="#ffffff"
+              color="#000000"
               font="FiraMono-Regular.ttf"
               anchorX="center"
               anchorY="middle"
