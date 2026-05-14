@@ -8,11 +8,10 @@ body, html, #root {
   padding: 0;
   width: 100vw;
   height: 100vh;
-  overflow: hidden; /* This physically disables scrolling */
+  overflow: hidden; 
   background-color: #050505;
 }
 
-/* Optional: Makes the text look sleeker */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;

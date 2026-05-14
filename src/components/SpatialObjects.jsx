@@ -3,7 +3,6 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Store the display text mapped to your project IDs
 const PROJECT_INFO = {
   p1: { title: 'INTERACTIVE\nPORTFOLIO', sub: 'WEB.DEV // 01' },
   p2: { title: 'ENGINEERING\nRESUME', sub: 'DOC.SYS // 02' },
@@ -32,7 +31,6 @@ const SpatialObjects = ({ handsPositionRef }) => {
       return { x, y };
     };
 
-    // 1. RENDER EXECUTE HOLE
     if (holeRef.current && uiState.holeCurrX !== undefined) {
       holeRef.current.visible = true;
       const targetHole3D = to3D(uiState.holeCurrX, uiState.holeCurrY);
@@ -47,11 +45,9 @@ const SpatialObjects = ({ handsPositionRef }) => {
       holeRef.current.material.emissiveIntensity = uiState.isSnapped ? 3 : 0.8;
     }
 
-    // 2. RENDER CUBES AND SLOTS
     Object.keys(uiState.projects).forEach((id) => {
       const pState = uiState.projects[id];
       
-      // A. Empty Slot Wireframes
       if (pState.slotCurrX !== undefined) {
         const targetSlot3D = to3D(pState.slotCurrX, pState.slotCurrY);
         const slot = slotRefs.current[id];
@@ -63,7 +59,6 @@ const SpatialObjects = ({ handsPositionRef }) => {
         }
       }
 
-      // B. Physical Glass Cubes
       const cube = cubesRef.current[id];
       if (cube) {
         cube.visible = true;
@@ -102,19 +97,16 @@ const SpatialObjects = ({ handsPositionRef }) => {
 
       {['p1', 'p2', 'p3'].map((id) => (
         <group key={id} ref={el => cubesRef.current[id] = el}>
-          {/* Outer Glass Shell */}
           <mesh>
             <boxGeometry args={[1.2, 1.2, 1.2]} />
             <meshPhysicalMaterial color="#00ffcc" transmission={0.7} thickness={1} transparent opacity={0.6}/>
           </mesh>
           
-          {/* Inner Wireframe Core */}
           <mesh>
             <boxGeometry args={[0.8, 0.8, 0.8]} />
             <meshBasicMaterial color="#0c7b8a" wireframe />
           </mesh>
 
-          {/* FRONT FACE TEXT */}
           <group position={[0, 0, 0.61]}>
             <Text
               position={[0, 0.15, 0]}
@@ -140,7 +132,6 @@ const SpatialObjects = ({ handsPositionRef }) => {
             </Text>
           </group>
 
-          {/* REAR FACE TEXT (Visible when you spin the cube) */}
           <group position={[0, 0, -0.61]} rotation={[0, Math.PI, 0]}>
             <Text
               position={[0, 0.15, 0]}

@@ -10,8 +10,7 @@ const Scene = ({ handsPositionRef }) => {
     <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
       <Swarm handsPositionRef={handsPositionRef} />
       <SprawlParticles handsPositionRef={handsPositionRef} />
-      
-      {/* THE FIX: Suspense catches the font loading so the Canvas doesn't crash! */}
+
       <Suspense fallback={null}>
         <SpatialObjects handsPositionRef={handsPositionRef} />
       </Suspense>

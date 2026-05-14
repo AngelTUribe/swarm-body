@@ -28,7 +28,6 @@ const CameraView = ({ handsPositionRef }) => {
   }, []);
 
   return (
-    // We removed the PIP styling and made it full screen
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0 }}>
       <video
         ref={videoRef}
@@ -37,9 +36,9 @@ const CameraView = ({ handsPositionRef }) => {
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'fill', // Stretches to fill monitor
-          transform: 'scaleX(-1)', // Mirrored
-          opacity: 0.3 // Dimmed so the 3D hologram still glows!
+          objectFit: 'fill', 
+          transform: 'scaleX(-1)', 
+          opacity: 0.3 
         }}
       />
     </div>

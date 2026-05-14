@@ -77,7 +77,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         return { raw: h, ix, iy, tx, ty, isPinching };
       }).filter(Boolean);
 
-      // === ACTION PHASE: HARD LOCK ===
       if (isLocked) {
         if (activeHandMemory.current.position) {
           const lastPos = activeHandMemory.current.position;
@@ -140,7 +139,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       }
 
-      // === IDLE PHASE: WAITING FOR INTENT ===
       if (!isLocked) {
         const pinchingHand = processedHands.find(ph => ph.isPinching);
         
@@ -212,7 +210,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       }
 
-      // === BOOT PHASE ===
         if (phase === 'boot' || phase === 'transition') {
           const startX = screenW * 0.35; const endX = screenW * 0.65;
           const maskPath = document.getElementById('ar-mask-path');
@@ -249,7 +246,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       handsPositionRef.current.zipperState = { phase: 'main' };
 
-      // === PHYSICS GLIDE ===
       let isSnapped = false; 
       const targetHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
       state.current.holeCurrX += (targetHole.x - state.current.holeCurrX) * 0.1;
@@ -454,7 +450,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         `}
       </style>
 
-      {/* BOOT SCREEN */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 0.5s', zIndex: 50 }}>
         <div style={{ position: 'absolute', top: '8%', left: '50%', transform: 'translateX(-50%)', width: '85%', maxWidth: '800px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4vh' }}>
           
@@ -500,7 +495,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       </div>
 
-      {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
         <div id="execute-label" style={{ 
           position: 'absolute', 
@@ -525,7 +519,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-      {/* DATA TETHER (Spiderweb) - ONLY renders if NOT the Spatial Drive game */}
       {expandedProject && expandedProject.id !== 'p3' && (
         <svg style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 250, filter: 'drop-shadow(0 0 10px #00ffcc)' }}>
           <defs>
@@ -544,7 +537,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </svg>
       )}
 
-      {/* EXPANDED WINDOW */}
       {expandedProject && (
         <div style={{ 
           position: 'absolute', 
@@ -582,7 +574,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
             </div>
           )}
           
-          {/* THE FIX: Changed textAlign to 'right' and added marginRight to push instructions off the track center */}
           {expandedProject.id === 'p3' && (
             <div style={{ color: 'rgb(255, 0, 255)', fontFamily: 'monospace', textAlign: 'right', marginTop: '30px', marginRight: '40px', textShadow: '0 0 10px #ff00ff' }}>
               <h2 style={{ letterSpacing: '3px' }}>[ RIGHT-HANDED DRIVE SYSTEM ACTIVE ]</h2>
@@ -594,7 +585,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-      {/* DUAL CURSORS */}
       <div ref={cursor1Ref} style={cursorStyle} />
       <div ref={cursor2Ref} style={cursorStyle} />
     </div>

@@ -30,7 +30,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const particlesRef = useRef();
   const pData = useRef(Array.from({length: particleCount}, () => ({ x:1000, y:1000, z:1000, vx:0, vy:0, vz:0, life: 0 })));
 
-  // THE FIX: Memoize the Float32Array so it doesn't get destroyed when setLaps triggers a re-render
   const particlePositions = useMemo(() => {
     const arr = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount * 3; i++) arr[i] = 1000;
