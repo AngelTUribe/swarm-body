@@ -91,7 +91,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
             if (dist < minDist) { minDist = dist; bestHand = ph; }
           });
 
-          if (bestHand && minDist < 0.2) {
+          if (bestHand && minDist < 0.08) {
             activeHand = bestHand;
             activeHandMemory.current.lostFrames = 0;
           }
@@ -421,14 +421,59 @@ const PortfolioUI = ({ handsPositionRef }) => {
             0% { transform: translate(var(--cx), var(--cy)) rotate(0deg); }
             100% { transform: translate(var(--cx), var(--cy)) rotate(360deg); }
           }
+          .pulse-text {
+            animation: pulse-opacity 2s ease-in-out infinite;
+          }
+          @keyframes pulse-opacity {
+            0%, 100% { opacity: 1; text-shadow: 0 0 15px #00ffcc; }
+            50% { opacity: 0.4; text-shadow: none; }
+          }
         `}
       </style>
       {/* BOOT SCREEN */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 0.5s', zIndex: 50 }}>
-        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '500px', padding: '20px', textAlign: 'center', backgroundColor: 'rgba(5, 10, 15, 0.8)', border: '1px solid #00ffcc', borderRadius: '12px' }}>
-          <h2 style={{ color: '#fff', fontFamily: 'monospace', letterSpacing: '4px' }}>SPATIAL ENVIRONMENT</h2>
-          <p style={{ color: '#00ffcc' }}>Pinch and pull the zipper to begin.</p>
+        {/* NEW HIGH-TECH INSTRUCTION HUD */}
+        <div style={{ position: 'absolute', top: '8%', left: '50%', transform: 'translateX(-50%)', width: '85%', maxWidth: '800px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4vh' }}>
+          
+          {/* Main Title */}
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ color: '#fff', fontFamily: '"Fira Mono", monospace', fontSize: '2.5rem', letterSpacing: '8px', margin: '0', textShadow: '0 0 20px rgba(0, 255, 204, 0.5)' }}>
+              SPATIAL_HAND_ENVIRONMENT
+            </h1>
+            <div style={{ color: '#00ffcc', fontFamily: '"Fira Mono", monospace', fontSize: '1rem', letterSpacing: '6px', marginTop: '10px' }}>
+              [ SYSTEM INITIALIZATION ]
+            </div>
+          </div>
+
+          {/* Instruction Panel */}
+          <div style={{ backgroundColor: 'rgba(5, 10, 15, 0.65)', border: '1px solid rgba(0, 255, 204, 0.3)', borderLeft: '4px solid #00ffcc', padding: '30px', width: '100%', backdropFilter: 'blur(10px)', boxSizing: 'border-box', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ color: '#fff', fontFamily: '"Fira Mono", monospace', marginTop: 0, marginBottom: '20px', letterSpacing: '2px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
+              // USER INTERFACE MANUAL
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', color: '#a0b0c0', fontFamily: '"Fira Mono", monospace', fontSize: '1.05rem', lineHeight: '1.5' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>[01]</span>
+                <span><strong>WEBCAM TRACKING:</strong> This experience uses real-time computer vision. Move your hands in front of your camera to steer the glowing screen cursors.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>[02]</span>
+                <span><strong>GESTURE CONTROL:</strong> Bring your index finger and thumb together to <strong>PINCH</strong>. Use this gesture to grab and drag interactive elements.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>[03]</span>
+                <span><strong>DATA ARTIFACTS:</strong> The floating glass cubes represent my project portfolio. Grab a cube and drag it to the central execution port to open it.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pulsing Action Call */}
+          <div className="pulse-text" style={{ color: '#00ffcc', fontFamily: '"Fira Mono", monospace', fontSize: '1.1rem', letterSpacing: '4px', marginTop: '2vh' }}>
+            &gt;&gt; PINCH AND DRAG THE ZIPPER BELOW TO UNLOCK &lt;&lt;
+          </div>
+
         </div>
+        {/* END NEW HUD */}
         <div style={{ position: 'absolute', top: '50%', left: '35%', width: '30%', height: '2px', borderBottom: '2px dotted #00ffcc', transform: 'translateY(-50%)', opacity: 0.5 }} />
         <div id="zipper-handle" style={{ position: 'absolute', top: '50%', left: 0, width: '60px', height: '20px', display: 'flex', alignItems: 'center', transform: 'translate(35vw, -50%)', marginLeft: '-30px' }}>
           <div style={{ width: '30px', height: '24px', backgroundColor: '#fff', borderRadius: '4px', boxShadow: '0 0 15px #00ffcc' }} />
