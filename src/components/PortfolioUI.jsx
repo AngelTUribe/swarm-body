@@ -31,7 +31,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
     const screenH = window.innerHeight;
     const centerY = screenH * 0.65; 
     const radius = Math.min(screenW, screenH) * 0.4; 
-    const angles = [-35, 0, 35]; 
+    const angles = [-50, 0, 50]; 
 
     state.current.holeCentral = { x: screenW / 2, y: centerY };
     state.current.holeSplit = { x: screenW * 0.85, y: screenH * 0.5 }; 
@@ -486,8 +486,27 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
-        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 80, transform: 'translateX(-50%)', color: '#00ffcc', font: "FiraMono-Regular.ttf", fontWeight: 'bold', transition: 'opacity 0.3s' }}>
-          DRAG HERE TO INITIALIZE
+        <div id="execute-label" style={{ 
+          position: 'absolute', 
+          left: state.current.holeCurrX, 
+          top: state.current.holeCurrY + 110, // Pushed down slightly to clear the glowing cube
+          transform: 'translateX(-50%)', 
+          color: '#00ffcc', 
+          fontFamily: '"Fira Mono", monospace', // Fixed font declaration
+          fontSize: '0.95rem',
+          fontWeight: 'bold', 
+          letterSpacing: '4px',
+          transition: 'opacity 0.3s',
+          // New high-tech HUD styling
+          backgroundColor: 'rgba(5, 10, 15, 0.6)',
+          padding: '12px 28px',
+          border: '1px solid rgba(0, 255, 204, 0.4)',
+          borderRadius: '30px',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 0 20px rgba(0, 255, 204, 0.15)',
+          textShadow: '0 0 10px rgba(0, 255, 204, 0.8)'
+        }}>
+          [ DRAG CUBE HERE TO INITIALIZE ]
         </div>
       )}
 
