@@ -30,8 +30,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
     const centerY = screenH * 0.65; 
-    const radius = Math.min(screenW, screenH) * 0.55; 
-    const angles = [-60, 0, 60]; 
+    const radius = Math.min(screenW, screenH) * 0.50; 
+    const angles = [-57, 0, 57]; 
 
     state.current.holeCentral = { x: screenW / 2, y: centerY };
     state.current.holeSplit = { x: screenW * 0.25, y: screenH * 0.5 }; 
@@ -283,6 +283,29 @@ const PortfolioUI = ({ handsPositionRef }) => {
         execLabel.style.opacity = state.current.layout === 'split' ? '0' : '1';
       }
 
+      const tether1 = document.getElementById('tether-path-1');
+      if (tether1 && state.current.layout === 'split') {
+         const hx = state.current.holeCurrX;
+         const hy = state.current.holeCurrY;
+         
+         // Left edge of the expanded window (35vw from the left)
+         const winLeft = screenW * 0.35; 
+         
+         // Points along the left edge of the window
+         const p1 = screenH * 0.25;
+         const p2 = screenH * 0.40;
+         const p3 = screenH * 0.60;
+         const p4 = screenH * 0.75;
+
+         // Control point for Bezier Curve to give it that "sagging cable" or "web" look
+         const cpX = hx + (winLeft - hx) * 0.4;
+
+         document.getElementById('tether-path-1').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p1}, ${winLeft} ${p1}`);
+         document.getElementById('tether-path-2').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p2}, ${winLeft} ${p2}`);
+         document.getElementById('tether-path-3').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p3}, ${winLeft} ${p3}`);
+         document.getElementById('tether-path-4').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p4}, ${winLeft} ${p4}`);
+      }
+
       PROJECTS.forEach(p => {
         const pState = state.current.projects[p.id];
         const targetSlot = state.current.layout === 'split' ? pState.split : pState.central;
@@ -310,6 +333,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
           const pState = state.current.projects[p.id];
           
           if (Date.now() < pState.cooldownUntil) continue;
+
+          if (state.current.layout === 'split' && state.current.activeId !== p.id) continue;
 
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
             state.current.draggedId = p.id;
@@ -539,7 +564,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
               </span>
             </div>
             <div style={{ color: expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }}>
-              ::: CLOSE VIA BROWSER DEV TOOLS FOR NOW :::
+              ::: CLOSE BY DRAGGING THE CUBE BACK TO ITS INITIAL SPOT! :::
             </div>
           </div>
           {expandedProject.id !== 'p3' && (
