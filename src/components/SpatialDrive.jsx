@@ -1,5 +1,6 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 const SpatialDrive = ({ handsPositionRef }) => {
@@ -13,9 +14,18 @@ const SpatialDrive = ({ handsPositionRef }) => {
   
   const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
   const speedRef = useRef(0);
-  // FIX: Start facing down the track (Math.PI / 2) instead of into the wall (0)
   const angleRef = useRef(Math.PI / 2); 
   const steerInputRef = useRef(0); 
+
+  // Lap Tracking State
+  const [laps, setLaps] = useState(0);
+  const checkpointRef = useRef(false);
+  const lastX = useRef(-2);
+
+  // Particle System
+  const particleCount = 100;
+  const particlesRef = useRef();
+  const pData = useRef(Array.from({length: particleCount}, () => ({ x:1000, y:1000, z:1000, vx:0, vy:0, vz:0, life: 0 })));
 
   const straightLength = 6;
   const innerRadius = 4;
@@ -67,7 +77,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
-  // THE FIX: Hollow Shapes for the walls instead of solid capsules!
   const outerWallShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(-straightLength, outerRadius + 0.4);
@@ -135,7 +144,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
     if (wheelGroupRef.current) wheelGroupRef.current.visible = isActive;
     
-    // We boost the lighting slightly so the pastel colors pop
     if (ambientLightRef.current) ambientLightRef.current.intensity = isActive ? 0.8 : 0;
     if (dirLightRef.current) dirLightRef.current.intensity = isActive ? 2.0 : 0;
 
@@ -218,7 +226,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
       const clampedX = Math.max(-straightLength, Math.min(straightLength, nextX));
       const distFromCenter = Math.hypot(nextX - clampedX, nextZ);
 
-      // Adjusted collision radii to match the new hollow walls
       if (distFromCenter < innerRadius + 0.3) {
         const bounceAngle = Math.atan2(nextZ, nextX - clampedX);
         carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (innerRadius + 0.3);
@@ -233,12 +240,61 @@ const SpatialDrive = ({ handsPositionRef }) => {
         carRef.current.position.x = nextX;
         carRef.current.position.z = nextZ;
       }
+
+      // === LAP LOGIC ===
+      const currentX = carRef.current.position.x;
+      const currentZ = carRef.current.position.z;
+
+      // Hit the back half of the track to validate the next lap
+      if (currentZ < 0) checkpointRef.current = true;
+
+      // Cross the finish line (X goes from negative to positive while in the bottom curve)
+      if (checkpointRef.current && lastX.current < 0 && currentX >= 0 && currentZ > 0) {
+        setLaps(prev => prev + 1);
+        checkpointRef.current = false;
+        
+        // Ignite Particles
+        pData.current.forEach(p => {
+            p.x = 0;
+            p.y = 0.5;
+            p.z = (innerRadius + outerRadius) / 2;
+            p.vx = (Math.random() - 0.5) * 1.5;
+            p.vy = Math.random() * 1.5 + 0.5;
+            p.vz = (Math.random() - 0.5) * 1.5;
+            p.life = 1.0;
+        });
+      }
+      lastX.current = currentX;
+    }
+
+    // === PARTICLE ANIMATION ===
+    if (particlesRef.current) {
+        const positions = particlesRef.current.geometry.attributes.position.array;
+        let idx = 0;
+        pData.current.forEach(p => {
+            if (p.life > 0) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.z += p.vz;
+                p.vy -= 0.05; // Gravity
+                p.life -= 0.02;
+                positions[idx++] = p.x;
+                positions[idx++] = p.y;
+                positions[idx++] = p.z;
+            } else {
+                positions[idx++] = 1000;
+                positions[idx++] = 1000;
+                positions[idx++] = 1000;
+            }
+        });
+        particlesRef.current.geometry.attributes.position.needsUpdate = true;
     }
   });
 
   return (
     <>
-      <group ref={gameGroupRef} position={[0.5, -0.2, -6]} scale={0.28} rotation={[-Math.PI / 3.5, 0, 0]} visible={false}>
+      {/* THE FIX: Changed rotation to POSITIVE Math.PI / 5. This tilts the BACK of the track UP instead of DOWN. */}
+      <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.28} rotation={[Math.PI / 5, 0, 0]} visible={false}>
         
         {/* Outer Environment / Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
@@ -258,7 +314,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
 
-        {/* THE FIX: Extruded Hollow Walls */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
            <extrudeGeometry args={[outerWallShape, { depth: 0.6, bevelEnabled: false }]} />
            <meshStandardMaterial color="#ffffff" />
@@ -275,8 +330,29 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <meshStandardMaterial map={checkerTexture} />
         </mesh>
 
-        {/* CUTE CAR MODEL */}
-        <group ref={carRef} position={[0, 0.3, (innerRadius + outerRadius) / 2]}>
+        {/* 3D LAP TEXT HUD */}
+        <Text
+            position={[0, 6, -5]}
+            rotation={[-Math.PI / 5, 0, 0]} // Cancels the parent tilt so it perfectly faces the camera
+            fontSize={3}
+            color="#00ffcc"
+            font="FiraMono-Regular.ttf"
+            anchorX="center"
+            anchorY="middle"
+        >
+            {`LAPS: ${laps}`}
+        </Text>
+
+        {/* CELEBRATION PARTICLES */}
+        <points ref={particlesRef}>
+            <bufferGeometry>
+                <bufferAttribute attach="attributes-position" count={particleCount} array={new Float32Array(particleCount * 3)} itemSize={3} />
+            </bufferGeometry>
+            <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+        </points>
+
+        {/* CUTE CAR MODEL: Starts slightly behind the finish line now (-2 X) */}
+        <group ref={carRef} position={[-2, 0.3, (innerRadius + outerRadius) / 2]}>
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
                 <meshStandardMaterial color="#ff6b6b" />
@@ -293,7 +369,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
                 <circleGeometry args={[0.1, 16]} />
                 <meshBasicMaterial color="#ffe66d" />
             </mesh>
-            {/* Tires */}
             <mesh position={[0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
             <mesh position={[-0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
             <mesh position={[0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
@@ -319,7 +394,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
       </group>
       
       <ambientLight ref={ambientLightRef} intensity={0} />
-      {/* Moved the directional light slightly so it hits the track better */}
       <directionalLight ref={dirLightRef} position={[5, 10, 5]} intensity={0} castShadow />
     </>
   );
