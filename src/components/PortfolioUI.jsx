@@ -30,8 +30,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
     const centerY = screenH * 0.65; 
-    const radius = Math.min(screenW, screenH) * 0.4; 
-    const angles = [-50, 0, 50]; 
+    const radius = Math.min(screenW, screenH) * 0.55; 
+    const angles = [-60, 0, 60]; 
 
     state.current.holeCentral = { x: screenW / 2, y: centerY };
     state.current.holeSplit = { x: screenW * 0.85, y: screenH * 0.5 }; 
@@ -489,7 +489,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div id="execute-label" style={{ 
           position: 'absolute', 
           left: state.current.holeCurrX, 
-          top: state.current.holeCurrY + 110, // Pushed down slightly to clear the glowing cube
+          top: state.current.holeCurrY + 145, // Pushed down slightly to clear the glowing cube
           transform: 'translateX(-50%)', 
           color: '#00ffcc', 
           fontFamily: '"Fira Mono", monospace', // Fixed font declaration
