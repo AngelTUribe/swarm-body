@@ -9,7 +9,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const carRef = useRef();
   const steeringWheelRef = useRef();
   
-  // New Pedal Refs
   const gasPedalRef = useRef();
   const brakePedalRef = useRef();
   const isGasRef = useRef(false);
@@ -23,12 +22,10 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const angleRef = useRef(Math.PI / 2); 
   const steerInputRef = useRef(0); 
 
-  // Lap Tracking State
   const [laps, setLaps] = useState(0);
   const checkpointRef = useRef(false);
   const lastX = useRef(-2);
 
-  // Particle System
   const particleCount = 100;
   const particlesRef = useRef();
   const pData = useRef(Array.from({length: particleCount}, () => ({ x:1000, y:1000, z:1000, vx:0, vy:0, vz:0, life: 0 })));
@@ -83,10 +80,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
-  // Fitted Outer Grass Shape
   const outerGrassShape = useMemo(() => {
     const shape = new THREE.Shape();
-    const padR = outerRadius + 6; 
+    // THE FIX: Reduced from +6 to +3. When combined with the new 0.35 scale below, 
+    // the absolute size on screen stays the exact same!
+    const padR = outerRadius + 3; 
     shape.moveTo(-straightLength, padR);
     shape.lineTo(straightLength, padR);
     shape.absarc(straightLength, 0, padR, Math.PI/2, -Math.PI/2, true);
@@ -131,25 +129,20 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
-  // Procedural Arrows for Track Direction
   const trackArrows = useMemo(() => {
     const arr = [];
     const midR = (innerRadius + outerRadius) / 2; 
     
-    // Top Straight (Moving Right)
     arr.push({ pos: [-3, -0.08, midR], angle: Math.PI/2 });
     arr.push({ pos: [3, -0.08, midR], angle: Math.PI/2 });
     
-    // Right Curve
     arr.push({ pos: [straightLength + midR * 0.707, -0.08, midR * 0.707], angle: 3*Math.PI/4 });
     arr.push({ pos: [straightLength + midR, -0.08, 0], angle: Math.PI }); 
     arr.push({ pos: [straightLength + midR * 0.707, -0.08, -midR * 0.707], angle: 5*Math.PI/4 });
     
-    // Bottom Straight (Moving Left)
     arr.push({ pos: [3, -0.08, -midR], angle: 3*Math.PI/2 });
     arr.push({ pos: [-3, -0.08, -midR], angle: 3*Math.PI/2 });
     
-    // Left Curve
     arr.push({ pos: [-straightLength - midR * 0.707, -0.08, -midR * 0.707], angle: 7*Math.PI/4 });
     arr.push({ pos: [-straightLength - midR, -0.08, 0], angle: 0 });
     arr.push({ pos: [-straightLength - midR * 0.707, -0.08, midR * 0.707], angle: Math.PI/4 });
@@ -227,7 +220,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     let steerInput = 0;
     
-    // Reset pedal logic
     isGasRef.current = false;
     isBrakeRef.current = false;
 
@@ -266,13 +258,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     speedRef.current *= 0.92; 
 
-    // Handle Wheel Animation
     if (steeringWheelRef.current) {
         const targetRotation = -steerInputRef.current * Math.PI * 0.6;
         steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * 0.15;
     }
     
-    // Handle Pedal Animations
     if (gasPedalRef.current) {
         const target = isGasRef.current ? Math.PI / 6 : 0;
         gasPedalRef.current.rotation.x += (target - gasPedalRef.current.rotation.x) * 0.2;
@@ -306,19 +296,15 @@ const SpatialDrive = ({ handsPositionRef }) => {
         carRef.current.position.z = nextZ;
       }
 
-      // === LAP LOGIC ===
       const currentX = carRef.current.position.x;
       const currentZ = carRef.current.position.z;
 
-      // Hit the back half of the track to validate the next lap
       if (currentZ < 0) checkpointRef.current = true;
 
-      // Cross the finish line (X goes from negative to positive while in the bottom curve)
       if (checkpointRef.current && lastX.current < 0 && currentX >= 0 && currentZ > 0) {
         setLaps(prev => prev + 1);
         checkpointRef.current = false;
         
-        // Ignite Particles
         pData.current.forEach(p => {
             p.x = 0;
             p.y = 0.5;
@@ -332,7 +318,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
       lastX.current = currentX;
     }
 
-    // === PARTICLE ANIMATION ===
     if (particlesRef.current) {
         const positions = particlesRef.current.geometry.attributes.position.array;
         let idx = 0;
@@ -341,7 +326,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
                 p.x += p.vx;
                 p.y += p.vy;
                 p.z += p.vz;
-                p.vy -= 0.05; // Gravity
+                p.vy -= 0.05; 
                 p.life -= 0.02;
                 positions[idx++] = p.x;
                 positions[idx++] = p.y;
@@ -358,36 +343,31 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.28} rotation={[Math.PI / 5, 0, 0]} visible={false}>
+      {/* THE FIX: Increased scale from 0.28 to 0.35 */}
+      <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.35} rotation={[Math.PI / 5, 0, 0]} visible={false}>
         
-        {/* FITTED OUTER GRASS */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
             <shapeGeometry args={[outerGrassShape]} />
             <meshStandardMaterial color="#7ec850" roughness={1} />
         </mesh>
 
-        {/* Inner Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
             <shapeGeometry args={[grassShape]} />
             <meshStandardMaterial color="#68ab40" roughness={1} />
         </mesh>
 
-        {/* Asphalt Oval Track */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
             <shapeGeometry args={[trackShape]} />
             <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
         
-        {/* NEW: Detailed Directional Arrows (Head + Shaft) */}
         <group>
             {trackArrows.map((arr, i) => (
                 <group key={`arrow-${i}`} position={arr.pos} rotation={[0, arr.angle, 0]}>
-                    {/* Arrowhead */}
                     <mesh rotation={[Math.PI/2, 0, 0]} position={[0, 0, 0.4]}>
                         <coneGeometry args={[0.5, 0.8, 3]} />
                         <meshStandardMaterial color="#00ffcc" />
                     </mesh>
-                    {/* Arrow Shaft/Tail */}
                     <mesh position={[0, 0, -0.2]}>
                         <boxGeometry args={[0.3, 0.1, 0.8]} />
                         <meshStandardMaterial color="#00ffcc" />
@@ -406,13 +386,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
            <meshStandardMaterial color="#ff0000" />
         </mesh>
 
-        {/* Checkered Start/Finish Line */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, (innerRadius + outerRadius) / 2]}>
             <planeGeometry args={[2, outerRadius - innerRadius]} />
             <meshStandardMaterial map={checkerTexture} />
         </mesh>
 
-        {/* 3D LAP TEXT HUD - MOVED HIGHER */}
         <Text
             position={[0, 9, -7]}
             rotation={[-Math.PI / 5, 0, 0]} 
@@ -425,7 +403,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
             {`LAPS: ${laps}`}
         </Text>
 
-        {/* CELEBRATION PARTICLES */}
         <points ref={particlesRef}>
             <bufferGeometry>
                 <bufferAttribute attach="attributes-position" count={particleCount} array={new Float32Array(particleCount * 3)} itemSize={3} />
@@ -433,7 +410,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <pointsMaterial size={0.4} color="#ff00ff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
         </points>
 
-        {/* CUTE CAR MODEL */}
         <group ref={carRef} position={[-2, 0.3, (innerRadius + outerRadius) / 2]}>
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
@@ -459,7 +435,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
       </group>
 
       <group ref={wheelGroupRef} position={[2.5, -1.2, 2]} visible={false}>
-          {/* Steering Wheel */}
           <group ref={steeringWheelRef}>
             <mesh>
               <torusGeometry args={[0.8, 0.1, 16, 48]} />
@@ -475,9 +450,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
             </mesh>
           </group>
 
-          {/* Animated Pedals System */}
           <group position={[1.5, -0.5, 0]}>
-            {/* Left Gas Pedal */}
             <group position={[-0.3, 0, 0]}>
                <group ref={gasPedalRef}>
                  <mesh position={[0, -0.3, 0.05]}>
@@ -485,14 +458,12 @@ const SpatialDrive = ({ handsPositionRef }) => {
                    <meshStandardMaterial color="#00ffcc" />
                  </mesh>
                </group>
-               {/* Base Pivot */}
                <mesh position={[0, 0, -0.05]}>
                    <boxGeometry args={[0.1, 0.1, 0.2]} />
                    <meshStandardMaterial color="#555555" />
                </mesh>
             </group>
             
-            {/* Right Brake Pedal */}
             <group position={[0.3, 0, 0]}>
                <group ref={brakePedalRef}>
                  <mesh position={[0, -0.2, 0.05]}>
@@ -500,7 +471,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
                    <meshStandardMaterial color="#ff00ff" />
                  </mesh>
                </group>
-               {/* Base Pivot */}
                <mesh position={[0, 0, -0.05]}>
                    <boxGeometry args={[0.1, 0.1, 0.2]} />
                    <meshStandardMaterial color="#555555" />
