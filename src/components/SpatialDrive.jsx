@@ -260,7 +260,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     if (steeringWheelRef.current) {
         const targetRotation = -steerInputRef.current * Math.PI * 0.6;
-        steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * 0.15;
+        steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * -0.15;
     }
     
     if (gasPedalRef.current) {
@@ -395,7 +395,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
             position={[0, 9, -7]}
             rotation={[-Math.PI / 5, 0, 0]} 
             fontSize={3.5}
-            color="#00ffcc"
+            color="rgb(255, 0, 255)"
             font="FiraMono-Regular.ttf"
             anchorX="center"
             anchorY="middle"

@@ -7,7 +7,6 @@ const PROJECTS = [
 ];
 
 const PortfolioUI = ({ handsPositionRef }) => {
-  // Dual cursors are back for the Idle Phase!
   const cursor1Ref = useRef(null);
   const cursor2Ref = useRef(null);
   const topBarRef = useRef(null);
@@ -68,7 +67,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       let isLocked = activeHandMemory.current.locked;
       let isBuffering = false;
 
-      // 1. Process all visible hands
       const processedHands = hands.map(h => {
         if (!h[8] || !h[4]) return null;
         const ix = (1 - h[8].x) * screenW;
@@ -79,7 +77,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
         return { raw: h, ix, iy, tx, ty, isPinching };
       }).filter(Boolean);
 
-      // === ACTION PHASE: HARD LOCK ===
       // === ACTION PHASE: HARD LOCK ===
       if (isLocked) {
         if (activeHandMemory.current.position) {
@@ -97,12 +94,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
           }
         }
 
-        // 1. HAND TRACKING LOSS BUFFER
         if (!activeHand) {
           isBuffering = true;
           activeHandMemory.current.lostFrames++;
           
-          // DYNAMIC TOLERANCE: Wait up to 60 frames (1 full second) if holding a block!
           const lostThreshold = state.current.draggedId ? 60 : 15; 
           
           if (activeHandMemory.current.lostFrames > lostThreshold) {
@@ -113,7 +108,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
             state.current.isDraggingZipper = false;
             pinchMemory.current.isPinching = false; 
           } else if (activeHandMemory.current.position) {
-            // Keep the cursor frozen exactly where we last saw it
             indexX = (1 - activeHandMemory.current.position.x) * screenW;
             indexY = activeHandMemory.current.position.y * screenH;
           }
@@ -122,14 +116,12 @@ const PortfolioUI = ({ handsPositionRef }) => {
           indexX = activeHand.ix;
           indexY = activeHand.iy;
 
-          // 2. PINCH SLIPPAGE BUFFER
           if (activeHand.isPinching) {
             pinchMemory.current.isPinching = true;
             pinchMemory.current.releasedFrames = 0;
           } else {
             pinchMemory.current.releasedFrames++;
             
-            // DYNAMIC TOLERANCE: Give the user 30 frames to fix their pinch before dropping
             const pinchThreshold = state.current.draggedId ? 30 : 10;
             if (pinchMemory.current.releasedFrames > pinchThreshold) {
                 pinchMemory.current.isPinching = false;
@@ -139,7 +131,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
         const safePinching = pinchMemory.current.isPinching;
 
-        // UNLOCK TRIGGER: If hand fully opens AND isn't holding a cube/zipper
         if (activeHand && !safePinching && !state.current.draggedId && !state.current.isDraggingZipper) {
           activeHandMemory.current.locked = false;
           isLocked = false;
@@ -153,7 +144,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
       if (!isLocked) {
         const pinchingHand = processedHands.find(ph => ph.isPinching);
         
-        // The exact moment ANY hand pinches, we hard lock onto it
         if (pinchingHand) {
           activeHandMemory.current.locked = true;
           activeHandMemory.current.lostFrames = 0;
@@ -165,7 +155,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
           pinchMemory.current.isPinching = true;
           pinchMemory.current.releasedFrames = 0;
         } else {
-          // No one is pinching. Just hover.
           indexX = null;
           indexY = null;
           pinchMemory.current.isPinching = false;
@@ -173,16 +162,13 @@ const PortfolioUI = ({ handsPositionRef }) => {
       }
 
       const finalIsPinching = pinchMemory.current.isPinching;
-
-      // === DYNAMIC CURSOR RENDERING ===
-      const hideCursors = expandedProject !== null; // Hides dots when window is open!
+      const hideCursors = expandedProject !== null; 
 
       if (hideCursors) {
           if (cursor1Ref.current) cursor1Ref.current.style.opacity = 0;
           if (cursor2Ref.current) cursor2Ref.current.style.opacity = 0;
       } else {
           if (!isLocked) {
-              // IDLE: Render both ghosts
               if (cursor1Ref.current) {
                   if (processedHands[0]) {
                       cursor1Ref.current.style.opacity = 1;
@@ -198,25 +184,21 @@ const PortfolioUI = ({ handsPositionRef }) => {
                   } else cursor2Ref.current.style.opacity = 0;
               }
           } else {
-              // LOCKED: Render only the active hand
             if (cursor1Ref.current) {
                 if (indexX !== null) {
                     cursor1Ref.current.style.opacity = 1;
                     
                     if (isBuffering) {
-                        // Yellow Loading Spinner Mode
                         cursor1Ref.current.style.backgroundColor = 'transparent';
                         cursor1Ref.current.style.border = '4px solid #ffcc00';
                         cursor1Ref.current.style.borderTopColor = 'transparent';
                         cursor1Ref.current.style.boxShadow = '0 0 10px #ffcc00';
                         cursor1Ref.current.classList.add('loading-spinner');
                         
-                        // Use CSS vars so the keyframe animation handles the transform
                         cursor1Ref.current.style.transform = ``; 
                         cursor1Ref.current.style.setProperty('--cx', `${indexX}px`);
                         cursor1Ref.current.style.setProperty('--cy', `${indexY}px`);
                     } else {
-                        // Standard Cyan/White Dot Mode
                         cursor1Ref.current.style.backgroundColor = (finalIsPinching || state.current.draggedId) ? '#00ffcc' : 'white';
                         cursor1Ref.current.style.border = 'none';
                         cursor1Ref.current.style.boxShadow = '0 0 15px #00ffcc';
@@ -235,11 +217,9 @@ const PortfolioUI = ({ handsPositionRef }) => {
           const startX = screenW * 0.35; const endX = screenW * 0.65;
           const maskPath = document.getElementById('ar-mask-path');
           
-          // 1. ADD THIS VARIABLE (75% down the screen)
           const zipperY = screenH * 0.75; 
   
           if (phase === 'boot' && indexX !== null) {
-            // 2. USE zipperY INSTEAD OF screenH/2 FOR THE GRAB ZONE
             const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > zipperY - 100 && indexY < zipperY + 100;
             if (finalIsPinching && hoveringZipper) state.current.isDraggingZipper = true;
             if (!finalIsPinching) state.current.isDraggingZipper = false;
@@ -251,7 +231,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   
           if (maskPath) {
             const zx = state.current.zipperX; const gap = pullProgress * (screenH * 0.6); 
-            // 3. USE zipperY INSTEAD OF screenH/2 FOR THE SVG HOLE CUTOUT
             maskPath.setAttribute('d', `M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z M 0 ${zipperY - gap} Q ${zx/2} ${zipperY - gap} ${zx} ${zipperY} Q ${zx/2} ${zipperY + gap} 0 ${zipperY + gap} Z`);
           }
   
@@ -283,45 +262,37 @@ const PortfolioUI = ({ handsPositionRef }) => {
         execLabel.style.opacity = state.current.layout === 'split' ? '0' : '1';
       }
 
-      // >>> SPIDERWEB & DATA BALL TETHER LOGIC <<<
       const tether1 = document.getElementById('tether-path-1');
       if (tether1 && state.current.layout === 'split') {
          const hx = state.current.holeCurrX;
          const hy = state.current.holeCurrY;
          const winLeft = screenW * 0.35; 
          
-         // Spread 5 connection points along the left edge of the window
          const p1 = screenH * 0.20;
          const p2 = screenH * 0.35;
          const p3 = screenH * 0.50;
          const p4 = screenH * 0.65;
          const p5 = screenH * 0.80;
 
-         // Control point X: placed halfway between cube and window
          const cpX = hx + (winLeft - hx) * 0.5;
 
-         // Helper function to draw the curves and push the flare outward
          const setPath = (id, destY, flareY) => {
            const pathEl = document.getElementById(id);
            const ballEl = document.getElementById(`${id}-balls`);
            if (pathEl) {
-             // Flare the control point Y out so the web expands instead of just sagging
              const cy = hy + (destY - hy) * flareY;
-             // Quadratic Bezier curve for a smooth projected arc
              const d = `M ${hx} ${hy} Q ${cpX} ${cy} ${winLeft} ${destY}`;
              pathEl.setAttribute('d', d);
              if (ballEl) ballEl.setAttribute('d', d);
            }
          };
 
-         // The third parameter flares the curve out. Negative is up, Positive is down.
          setPath('tether-path-1', p1, -0.4);
          setPath('tether-path-2', p2, -0.2);
-         setPath('tether-path-3', p3, 0);    // Straight to the middle
+         setPath('tether-path-3', p3, 0);   
          setPath('tether-path-4', p4, 0.2);
          setPath('tether-path-5', p5, 0.4);
       }
-      // >>> END TETHER LOGIC <<<
 
       PROJECTS.forEach(p => {
         const pState = state.current.projects[p.id];
@@ -344,13 +315,11 @@ const PortfolioUI = ({ handsPositionRef }) => {
         }
       });
 
-      // === GRAB DETECTION WITH COOLDOWN ===
       if (!state.current.draggedId && finalIsPinching && indexX !== null) {
         for (let p of PROJECTS) {
           const pState = state.current.projects[p.id];
           
           if (Date.now() < pState.cooldownUntil) continue;
-
           if (state.current.layout === 'split' && state.current.activeId !== p.id) continue;
 
           if (Math.hypot(indexX - pState.currX, indexY - pState.currY) < 80) {
@@ -368,51 +337,41 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        // 1. Follow the hand perfectly 1:1
         pState.currX = indexX; 
         pState.currY = indexY;
 
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const snapThreshold = 160; // Increased so it catches easily!
+        const snapThreshold = 160; 
 
-        // 2. Ensure we move away from spawn before it can snap anywhere
         if (!state.current.hasLeftOrigin) {
           if (state.current.layout === 'central' && distToSlot > snapThreshold) state.current.hasLeftOrigin = true;
           if (state.current.layout === 'split' && distToHole > snapThreshold) state.current.hasLeftOrigin = true;
         }
 
-        // 3. AUTO-DROP LOGIC (This drops it even if you are still pinching!)
         if (state.current.hasLeftOrigin) {
             let overTarget = false;
-            // Only auto-drop into the Hole if we are in central layout
             if (state.current.layout === 'central' && distToHole < snapThreshold) overTarget = true;
-            // Only auto-drop into the Slot if we are trying to put it back
             if (state.current.layout === 'split' && distToSlot < snapThreshold) overTarget = true;
             
-            // If inside the zone OR user lets go of pinch -> Force Drop
             if (overTarget || !finalIsPinching) {
                 state.current.draggedId = null; 
             }
         } else if (!finalIsPinching) {
-            // Let go normally without moving it
             state.current.draggedId = null;
         }
 
-        // 4. THE SNAP AND COOLDOWN
         if (state.current.hasLeftOrigin && state.current.draggedId === null) {
           if (state.current.layout === 'central') {
             if (distToHole < snapThreshold) {
-              // Lock into execution hole
               isSnapped = true; 
               pState.currX = activeHole.x; 
               pState.currY = activeHole.y; 
               state.current.layout = 'split'; 
               state.current.activeId = pid;
-              pState.cooldownUntil = Date.now() + 2000; // 2 SECOND TIMEOUT so you don't instantly grab it again
+              pState.cooldownUntil = Date.now() + 2000; 
               setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
             } else if (distToSlot < snapThreshold) {
-              // Lock back to origin slot
               isSnapped = true; 
               pState.currX = activeSlot.x; 
               pState.currY = activeSlot.y; 
@@ -421,14 +380,13 @@ const PortfolioUI = ({ handsPositionRef }) => {
           } 
           else if (state.current.layout === 'split') {
             if (distToSlot < snapThreshold) {
-              // Returning item to slot
               isSnapped = true; 
               pState.currX = activeSlot.x; 
               pState.currY = activeSlot.y; 
               setExpandedProject(null); 
               state.current.layout = 'central'; 
               state.current.activeId = null;
-              pState.cooldownUntil = Date.now() + 2000; // 2 SECOND TIMEOUT
+              pState.cooldownUntil = Date.now() + 2000; 
             } else if (distToHole < snapThreshold) {
                isSnapped = true; 
                pState.currX = activeHole.x; 
@@ -456,7 +414,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 2000 }}>
-      {/* ADD THIS STYLE BLOCK */}
       <style>
         {`
           .loading-spinner {
@@ -480,10 +437,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
             0% { stroke-opacity: 0.2; stroke-width: 1px; }
             100% { stroke-opacity: 0.8; stroke-width: 2.5px; }
           }
-
           .data-balls {
             stroke-linecap: round;
-            /* 0 length dash (creates a circle), 120px gap between balls */
             stroke-dasharray: 0 300; 
             animation: flow-data 3s linear infinite;
           }
@@ -492,20 +447,17 @@ const PortfolioUI = ({ handsPositionRef }) => {
             stroke-dasharray: 0 200;
             animation: flow-data 1.4s linear infinite;
           }
-
           @keyframes flow-data {
-            /* Moving to a negative offset pushes the dashes FORWARD along the path */
             from { stroke-dashoffset: 0; }
             to { stroke-dashoffset: -600; }
           }
         `}
       </style>
+
       {/* BOOT SCREEN */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 0.5s', zIndex: 50 }}>
-        {/* NEW HIGH-TECH INSTRUCTION HUD */}
         <div style={{ position: 'absolute', top: '8%', left: '50%', transform: 'translateX(-50%)', width: '85%', maxWidth: '800px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4vh' }}>
           
-          {/* Main Title */}
           <div style={{ textAlign: 'center' }}>
             <h1 style={{ color: '#fff', fontFamily: '"Fira Mono", monospace', fontSize: '2.5rem', letterSpacing: '8px', margin: '0', textShadow: '0 0 20px rgba(0, 255, 204, 0.5)' }}>
               SPATIAL_HAND_ENVIRONMENT
@@ -515,7 +467,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
             </div>
           </div>
 
-          {/* Instruction Panel */}
           <div style={{ backgroundColor: 'rgba(5, 10, 15, 0.65)', border: '1px solid rgba(0, 255, 204, 0.3)', borderLeft: '4px solid #00ffcc', padding: '30px', width: '100%', backdropFilter: 'blur(10px)', boxSizing: 'border-box', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
             <h3 style={{ color: '#fff', fontFamily: '"Fira Mono", monospace', marginTop: 0, marginBottom: '20px', letterSpacing: '2px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
               // USER INTERFACE MANUAL
@@ -537,13 +488,11 @@ const PortfolioUI = ({ handsPositionRef }) => {
             </div>
           </div>
 
-          {/* Pulsing Action Call */}
           <div className="pulse-text" style={{ color: '#00ffcc', fontFamily: '"Fira Mono", monospace', fontSize: '1.1rem', letterSpacing: '4px', marginTop: '2vh' }}>
             &gt;&gt; PINCH AND DRAG THE ZIPPER BELOW TO UNLOCK &lt;&lt;
           </div>
 
         </div>
-        {/* END NEW HUD */}
         <div style={{ position: 'absolute', top: '75%', left: '35%', width: '30%', height: '2px', borderBottom: '2px dotted #00ffcc', transform: 'translateY(-50%)', opacity: 0.5 }} />
         <div id="zipper-handle" style={{ position: 'absolute', top: '75%', left: 0, width: '60px', height: '20px', display: 'flex', alignItems: 'center', transform: 'translate(35vw, -50%)', marginLeft: '-30px' }}>
           <div style={{ width: '30px', height: '24px', backgroundColor: '#fff', borderRadius: '4px', boxShadow: '0 0 15px #00ffcc' }} />
@@ -556,15 +505,14 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div id="execute-label" style={{ 
           position: 'absolute', 
           left: state.current.holeCurrX, 
-          top: state.current.holeCurrY + 165, // Pushed down slightly to clear the glowing cube
+          top: state.current.holeCurrY + 165, 
           transform: 'translateX(-50%)', 
           color: '#00ffcc', 
-          fontFamily: '"Fira Mono", monospace', // Fixed font declaration
+          fontFamily: '"Fira Mono", monospace', 
           fontSize: '0.95rem',
           fontWeight: 'bold', 
           letterSpacing: '4px',
           transition: 'opacity 0.3s',
-          // New high-tech HUD styling
           backgroundColor: 'rgba(5, 10, 15, 0.6)',
           padding: '12px 28px',
           border: '1px solid rgba(0, 255, 204, 0.4)',
@@ -577,34 +525,20 @@ const PortfolioUI = ({ handsPositionRef }) => {
         </div>
       )}
 
-{/* DATA TETHER (Spiderweb) */}
-      {expandedProject && (
+      {/* DATA TETHER (Spiderweb) - ONLY renders if NOT the Spatial Drive game */}
+      {expandedProject && expandedProject.id !== 'p3' && (
         <svg style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 250, filter: 'drop-shadow(0 0 10px #00ffcc)' }}>
           <defs>
-            {/* Creates a fade effect from the cube to the window */}
             <linearGradient id="web-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} stopOpacity="1" />
-              <stop offset="100%" stopColor={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} stopOpacity="0.1" />
+              <stop offset="0%" stopColor="#00ffcc" stopOpacity="1" />
+              <stop offset="100%" stopColor="#00ffcc" stopOpacity="0.1" />
             </linearGradient>
           </defs>
 
           {[1, 2, 3, 4, 5].map(i => (
             <g key={i}>
-              {/* The semi-transparent glowing web line */}
-              <path 
-                id={`tether-path-${i}`} 
-                className="data-tether-base" 
-                stroke="url(#web-gradient)" 
-                fill="none" 
-              />
-              {/* The bright white data balls traveling along the exact same path */}
-              <path 
-                id={`tether-path-${i}-balls`} 
-                className={i % 2 === 0 ? "data-balls-fast" : "data-balls"} 
-                stroke="#ffffff" 
-                strokeWidth={i % 2 === 0 ? "6" : "4"} 
-                fill="none" 
-              />
+              <path id={`tether-path-${i}`} className="data-tether-base" stroke="url(#web-gradient)" fill="none" />
+              <path id={`tether-path-${i}-balls`} className={i % 2 === 0 ? "data-balls-fast" : "data-balls"} stroke="#ffffff" strokeWidth={i % 2 === 0 ? "6" : "4"} fill="none" />
             </g>
           ))}
         </svg>
@@ -615,11 +549,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div style={{ 
           position: 'absolute', 
           top: '15%', 
-          // CHANGE 3: Pin to the right and remove the center transform
           right: '5%', 
           left: 'auto',
           transform: 'none', 
-          width: '60vw', // Expanded slightly to fill the right side nicely
+          width: '60vw', 
           height: '70vh', 
           backgroundColor: expandedProject.id === 'p3' ? 'transparent' : 'rgba(5, 10, 15, 0.85)', 
           borderRadius: '16px', 
@@ -642,13 +575,16 @@ const PortfolioUI = ({ handsPositionRef }) => {
               ::: CLOSE BY DRAGGING THE CUBE BACK TO ITS INITIAL SPOT! :::
             </div>
           </div>
+          
           {expandedProject.id !== 'p3' && (
             <div style={{ flex: 1, padding: '15px', pointerEvents: 'auto' }}>
               <iframe src={expandedProject.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', backgroundColor: '#fff' }} title={expandedProject.title} />
             </div>
           )}
+          
+          {/* THE FIX: Changed textAlign to 'right' and added marginRight to push instructions off the track center */}
           {expandedProject.id === 'p3' && (
-            <div style={{ color: '#ff00ff', fontFamily: 'monospace', textAlign: 'center', marginTop: '30px', textShadow: '0 0 10px #ff00ff' }}>
+            <div style={{ color: 'rgb(255, 0, 255)', fontFamily: 'monospace', textAlign: 'right', marginTop: '30px', marginRight: '40px', textShadow: '0 0 10px #ff00ff' }}>
               <h2 style={{ letterSpacing: '3px' }}>[ ONE-HANDED DRIVE SYSTEM ACTIVE ]</h2>
               <p style={{ fontSize: '1.2rem' }}><b>GAS:</b> Open Palm &nbsp; | &nbsp; <b>BRAKE/REVERSE:</b> Closed Fist</p>
               <p style={{ fontSize: '1.2rem' }}><b>STEER:</b> Move hand left/right</p>
