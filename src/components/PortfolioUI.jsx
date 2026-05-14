@@ -289,56 +289,71 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        // 1. Calculate distances FIRST so we know if we should apply suction
+        // 1. Follow the hand perfectly 1:1
+        pState.currX = indexX; 
+        pState.currY = indexY;
+
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const dropThreshold = 180; // Increased for a wider "catch" area
-        const suctionStrength = 0.35; // How hard it pulls to the center
+        const snapThreshold = 160; // Increased so it catches easily!
 
-        // 2. MAGNETIC SUCTION LOGIC
-        if (distToHole < dropThreshold) {
-            // Pull towards hole while still holding
-            pState.currX += (activeHole.x - indexX) * suctionStrength;
-            pState.currY += (activeHole.y - indexY) * suctionStrength;
-        } else if (distToSlot < dropThreshold) {
-            // Pull towards slot while still holding
-            pState.currX += (activeSlot.x - indexX) * suctionStrength;
-            pState.currY += (activeSlot.y - indexY) * suctionStrength;
-        } else {
-            // Standard 1:1 tracking
-            pState.currX = indexX; 
-            pState.currY = indexY;
-        }
-
-        // 3. THE DROP (Releasing the pinch inside the threshold)
-        const overValidTarget = distToHole < dropThreshold || distToSlot < dropThreshold;
-        if (!finalIsPinching && overValidTarget) state.current.draggedId = null;
-
+        // 2. Ensure we move away from spawn before it can snap anywhere
         if (!state.current.hasLeftOrigin) {
-          if (state.current.layout === 'central' && distToSlot > 150) state.current.hasLeftOrigin = true;
-          if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
+          if (state.current.layout === 'central' && distToSlot > snapThreshold) state.current.hasLeftOrigin = true;
+          if (state.current.layout === 'split' && distToHole > snapThreshold) state.current.hasLeftOrigin = true;
         }
 
-        // 4. THE EXECUTION (Applying the snap state once dropped)
+        // 3. AUTO-DROP LOGIC (This drops it even if you are still pinching!)
+        if (state.current.hasLeftOrigin) {
+            let overTarget = false;
+            // Only auto-drop into the Hole if we are in central layout
+            if (state.current.layout === 'central' && distToHole < snapThreshold) overTarget = true;
+            // Only auto-drop into the Slot if we are trying to put it back
+            if (state.current.layout === 'split' && distToSlot < snapThreshold) overTarget = true;
+            
+            // If inside the zone OR user lets go of pinch -> Force Drop
+            if (overTarget || !finalIsPinching) {
+                state.current.draggedId = null; 
+            }
+        } else if (!finalIsPinching) {
+            // Let go normally without moving it
+            state.current.draggedId = null;
+        }
+
+        // 4. THE SNAP AND COOLDOWN
         if (state.current.hasLeftOrigin && state.current.draggedId === null) {
           if (state.current.layout === 'central') {
-            if (distToHole < dropThreshold) {
-              isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
-              state.current.layout = 'split'; state.current.activeId = pid;
-              pState.cooldownUntil = Date.now() + 1500; 
+            if (distToHole < snapThreshold) {
+              // Lock into execution hole
+              isSnapped = true; 
+              pState.currX = activeHole.x; 
+              pState.currY = activeHole.y; 
+              state.current.layout = 'split'; 
+              state.current.activeId = pid;
+              pState.cooldownUntil = Date.now() + 2000; // 2 SECOND TIMEOUT so you don't instantly grab it again
               setTimeout(() => setExpandedProject(PROJECTS.find(p => p.id === pid)), 600);
-            } else if (distToSlot < dropThreshold) {
-              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
+            } else if (distToSlot < snapThreshold) {
+              // Lock back to origin slot
+              isSnapped = true; 
+              pState.currX = activeSlot.x; 
+              pState.currY = activeSlot.y; 
               pState.cooldownUntil = Date.now() + 1500; 
             }
           } 
           else if (state.current.layout === 'split') {
-            if (distToSlot < dropThreshold) {
-              isSnapped = true; pState.currX = activeSlot.x; pState.currY = activeSlot.y; 
-              setExpandedProject(null); state.current.layout = 'central'; state.current.activeId = null;
-              pState.cooldownUntil = Date.now() + 1500; 
-            } else if (distToHole < dropThreshold) {
-               isSnapped = true; pState.currX = activeHole.x; pState.currY = activeHole.y; 
+            if (distToSlot < snapThreshold) {
+              // Returning item to slot
+              isSnapped = true; 
+              pState.currX = activeSlot.x; 
+              pState.currY = activeSlot.y; 
+              setExpandedProject(null); 
+              state.current.layout = 'central'; 
+              state.current.activeId = null;
+              pState.cooldownUntil = Date.now() + 2000; // 2 SECOND TIMEOUT
+            } else if (distToHole < snapThreshold) {
+               isSnapped = true; 
+               pState.currX = activeHole.x; 
+               pState.currY = activeHole.y; 
                pState.cooldownUntil = Date.now() + 1500; 
             }
           }
