@@ -489,7 +489,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
         <div id="execute-label" style={{ 
           position: 'absolute', 
           left: state.current.holeCurrX, 
-          top: state.current.holeCurrY + 145, // Pushed down slightly to clear the glowing cube
+          top: state.current.holeCurrY + 165, // Pushed down slightly to clear the glowing cube
           transform: 'translateX(-50%)', 
           color: '#00ffcc', 
           fontFamily: '"Fira Mono", monospace', // Fixed font declaration
