@@ -234,9 +234,13 @@ const PortfolioUI = ({ handsPositionRef }) => {
         if (phase === 'boot' || phase === 'transition') {
           const startX = screenW * 0.35; const endX = screenW * 0.65;
           const maskPath = document.getElementById('ar-mask-path');
+          
+          // 1. ADD THIS VARIABLE (75% down the screen)
+          const zipperY = screenH * 0.75; 
   
           if (phase === 'boot' && indexX !== null) {
-            const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > screenH/2 - 100 && indexY < screenH/2 + 100;
+            // 2. USE zipperY INSTEAD OF screenH/2 FOR THE GRAB ZONE
+            const hoveringZipper = indexX > startX - 50 && indexX < endX + 50 && indexY > zipperY - 100 && indexY < zipperY + 100;
             if (finalIsPinching && hoveringZipper) state.current.isDraggingZipper = true;
             if (!finalIsPinching) state.current.isDraggingZipper = false;
             if (state.current.isDraggingZipper) state.current.zipperX = Math.max(startX, Math.min(indexX, screenW * 0.7)); 
@@ -247,7 +251,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
   
           if (maskPath) {
             const zx = state.current.zipperX; const gap = pullProgress * (screenH * 0.6); 
-            maskPath.setAttribute('d', `M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z M 0 ${screenH/2 - gap} Q ${zx/2} ${screenH/2 - gap} ${zx} ${screenH/2} Q ${zx/2} ${screenH/2 + gap} 0 ${screenH/2 + gap} Z`);
+            // 3. USE zipperY INSTEAD OF screenH/2 FOR THE SVG HOLE CUTOUT
+            maskPath.setAttribute('d', `M 0 0 L ${screenW} 0 L ${screenW} ${screenH} L 0 ${screenH} Z M 0 ${zipperY - gap} Q ${zx/2} ${zipperY - gap} ${zx} ${zipperY} Q ${zx/2} ${zipperY + gap} 0 ${zipperY + gap} Z`);
           }
   
           const zipperEl = document.getElementById('zipper-handle');
@@ -255,8 +260,6 @@ const PortfolioUI = ({ handsPositionRef }) => {
   
           if (state.current.zipperX > endX && phase === 'boot') {
             setPhase('transition'); 
-            
-            // THE FIX: Force the zipper drag state to false so the hand unlocks!
             state.current.isDraggingZipper = false; 
             
             if (maskPath) maskPath.style.opacity = '0'; 
@@ -474,8 +477,8 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
         </div>
         {/* END NEW HUD */}
-        <div style={{ position: 'absolute', top: '50%', left: '35%', width: '30%', height: '2px', borderBottom: '2px dotted #00ffcc', transform: 'translateY(-50%)', opacity: 0.5 }} />
-        <div id="zipper-handle" style={{ position: 'absolute', top: '50%', left: 0, width: '60px', height: '20px', display: 'flex', alignItems: 'center', transform: 'translate(35vw, -50%)', marginLeft: '-30px' }}>
+        <div style={{ position: 'absolute', top: '75%', left: '35%', width: '30%', height: '2px', borderBottom: '2px dotted #00ffcc', transform: 'translateY(-50%)', opacity: 0.5 }} />
+        <div id="zipper-handle" style={{ position: 'absolute', top: '75%', left: 0, width: '60px', height: '20px', display: 'flex', alignItems: 'center', transform: 'translate(35vw, -50%)', marginLeft: '-30px' }}>
           <div style={{ width: '30px', height: '24px', backgroundColor: '#fff', borderRadius: '4px', boxShadow: '0 0 15px #00ffcc' }} />
           <div style={{ width: '30px', height: '10px', backgroundColor: 'rgba(0,255,204,0.3)', border: '1px solid #00ffcc' }} />
         </div>
