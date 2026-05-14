@@ -13,15 +13,14 @@ const SpatialDrive = ({ handsPositionRef }) => {
   
   const activeHandMemory = useRef({ position: null, locked: false, lostFrames: 0 });
   const speedRef = useRef(0);
-  const angleRef = useRef(0);
+  // FIX: Start facing down the track (Math.PI / 2) instead of into the wall (0)
+  const angleRef = useRef(Math.PI / 2); 
   const steerInputRef = useRef(0); 
 
-  // NASCAR Oval Track Dimensions
   const straightLength = 6;
   const innerRadius = 4;
   const outerRadius = 9;
 
-  // Procedural Checkered Flag Texture
   const checkerTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -40,7 +39,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return texture;
   }, []);
 
-  // Oval Track Shapes
   const trackShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(-straightLength, outerRadius);
@@ -66,6 +64,43 @@ const SpatialDrive = ({ handsPositionRef }) => {
     shape.absarc(straightLength, 0, innerRadius, Math.PI/2, -Math.PI/2, true);
     shape.lineTo(-straightLength, -innerRadius);
     shape.absarc(-straightLength, 0, innerRadius, -Math.PI/2, Math.PI/2, true);
+    return shape;
+  }, [straightLength, innerRadius]);
+
+  // THE FIX: Hollow Shapes for the walls instead of solid capsules!
+  const outerWallShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-straightLength, outerRadius + 0.4);
+    shape.lineTo(straightLength, outerRadius + 0.4);
+    shape.absarc(straightLength, 0, outerRadius + 0.4, Math.PI/2, -Math.PI/2, true);
+    shape.lineTo(-straightLength, -(outerRadius + 0.4));
+    shape.absarc(-straightLength, 0, outerRadius + 0.4, -Math.PI/2, Math.PI/2, true);
+
+    const hole = new THREE.Path();
+    hole.moveTo(-straightLength, outerRadius);
+    hole.lineTo(straightLength, outerRadius);
+    hole.absarc(straightLength, 0, outerRadius, Math.PI/2, -Math.PI/2, true);
+    hole.lineTo(-straightLength, -outerRadius);
+    hole.absarc(-straightLength, 0, outerRadius, -Math.PI/2, Math.PI/2, true);
+    shape.holes.push(hole);
+    return shape;
+  }, [straightLength, outerRadius]);
+
+  const innerWallShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-straightLength, innerRadius);
+    shape.lineTo(straightLength, innerRadius);
+    shape.absarc(straightLength, 0, innerRadius, Math.PI/2, -Math.PI/2, true);
+    shape.lineTo(-straightLength, -innerRadius);
+    shape.absarc(-straightLength, 0, innerRadius, -Math.PI/2, Math.PI/2, true);
+
+    const hole = new THREE.Path();
+    hole.moveTo(-straightLength, innerRadius - 0.4);
+    hole.lineTo(straightLength, innerRadius - 0.4);
+    hole.absarc(straightLength, 0, innerRadius - 0.4, Math.PI/2, -Math.PI/2, true);
+    hole.lineTo(-straightLength, -(innerRadius - 0.4));
+    hole.absarc(-straightLength, 0, innerRadius - 0.4, -Math.PI/2, Math.PI/2, true);
+    shape.holes.push(hole);
     return shape;
   }, [straightLength, innerRadius]);
 
@@ -99,15 +134,16 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
     if (wheelGroupRef.current) wheelGroupRef.current.visible = isActive;
-    if (ambientLightRef.current) ambientLightRef.current.intensity = isActive ? 0.6 : 0;
-    if (dirLightRef.current) dirLightRef.current.intensity = isActive ? 1.5 : 0;
+    
+    // We boost the lighting slightly so the pastel colors pop
+    if (ambientLightRef.current) ambientLightRef.current.intensity = isActive ? 0.8 : 0;
+    if (dirLightRef.current) dirLightRef.current.intensity = isActive ? 2.0 : 0;
 
     if (!isActive) return;
 
     const hands = handsPositionRef.current?.landmarks || [];
     const screenW = window.innerWidth;
 
-    // === STRICT RIGHT-HAND LOCK ===
     let activeHand = null;
 
     if (activeHandMemory.current.locked && activeHandMemory.current.position) {
@@ -154,7 +190,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
       const ix = (1 - activeHand[8].x) * screenW;
       
-      // Steering locked to right hemisphere
       const steeringCenter = screenW * 0.75;
       const rawSteer = (steeringCenter - ix) / (screenW * 0.20);
       steerInput = Math.max(-1, Math.min(1, rawSteer)); 
@@ -183,15 +218,16 @@ const SpatialDrive = ({ handsPositionRef }) => {
       const clampedX = Math.max(-straightLength, Math.min(straightLength, nextX));
       const distFromCenter = Math.hypot(nextX - clampedX, nextZ);
 
-      if (distFromCenter < innerRadius + 0.4) {
+      // Adjusted collision radii to match the new hollow walls
+      if (distFromCenter < innerRadius + 0.3) {
         const bounceAngle = Math.atan2(nextZ, nextX - clampedX);
-        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (innerRadius + 0.4);
-        carRef.current.position.z = Math.sin(bounceAngle) * (innerRadius + 0.4);
+        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (innerRadius + 0.3);
+        carRef.current.position.z = Math.sin(bounceAngle) * (innerRadius + 0.3);
         speedRef.current *= 0.6; 
-      } else if (distFromCenter > outerRadius - 0.4) {
+      } else if (distFromCenter > outerRadius - 0.3) {
         const bounceAngle = Math.atan2(nextZ, nextX - clampedX);
-        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (outerRadius - 0.4);
-        carRef.current.position.z = Math.sin(bounceAngle) * (outerRadius - 0.4);
+        carRef.current.position.x = clampedX + Math.cos(bounceAngle) * (outerRadius - 0.3);
+        carRef.current.position.z = Math.sin(bounceAngle) * (outerRadius - 0.3);
         speedRef.current *= 0.6; 
       } else {
         carRef.current.position.x = nextX;
@@ -202,38 +238,34 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      {/* THE FIX: 
-        1. Reduced scale to 0.3 so it fits beautifully on screen like a toy track.
-        2. Shifted position slightly right (+1 on X axis) and set a nice top-down tilt.
-      */}
-      <group ref={gameGroupRef} position={[1, -0.5, -6]} scale={0.3} rotation={[-Math.PI / 3, 0, 0]} visible={false}>
+      <group ref={gameGroupRef} position={[0.5, -0.2, -6]} scale={0.28} rotation={[-Math.PI / 3.5, 0, 0]} visible={false}>
         
         {/* Outer Environment / Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
             <circleGeometry args={[25, 64]} />
-            <meshBasicMaterial color="#7ec850" />
+            <meshStandardMaterial color="#7ec850" roughness={1} />
         </mesh>
 
         {/* Inner Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
             <shapeGeometry args={[grassShape]} />
-            <meshStandardMaterial color="#68ab40" />
+            <meshStandardMaterial color="#68ab40" roughness={1} />
         </mesh>
 
         {/* Asphalt Oval Track */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
             <shapeGeometry args={[trackShape]} />
-            <meshStandardMaterial color="#333333" />
+            <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
 
-        {/* Outer Wall */}
-        <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]}>
-           <capsuleGeometry args={[outerRadius + 0.2, straightLength * 2, 8, 32]} />
+        {/* THE FIX: Extruded Hollow Walls */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+           <extrudeGeometry args={[outerWallShape, { depth: 0.6, bevelEnabled: false }]} />
            <meshStandardMaterial color="#ffffff" />
         </mesh>
-        {/* Inner Wall */}
-        <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]}>
-           <capsuleGeometry args={[innerRadius - 0.2, straightLength * 2, 8, 32]} />
+
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+           <extrudeGeometry args={[innerWallShape, { depth: 0.6, bevelEnabled: false }]} />
            <meshStandardMaterial color="#ff0000" />
         </mesh>
 
@@ -244,7 +276,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
         </mesh>
 
         {/* CUTE CAR MODEL */}
-        <group ref={carRef} position={[0, 0.3, (innerRadius + outerRadius) / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <group ref={carRef} position={[0, 0.3, (innerRadius + outerRadius) / 2]}>
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
                 <meshStandardMaterial color="#ff6b6b" />
@@ -269,28 +301,26 @@ const SpatialDrive = ({ handsPositionRef }) => {
         </group>
       </group>
 
-      {/* THE FIX:
-        Moved the wheel to the positive X axis (right side of the screen)
-      */}
       <group ref={wheelGroupRef} position={[2.5, -1.2, 2]} visible={false}>
           <group ref={steeringWheelRef}>
             <mesh>
               <torusGeometry args={[0.8, 0.1, 16, 48]} />
-              <meshBasicMaterial color="#333333" />
+              <meshStandardMaterial color="#333333" />
             </mesh>
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[1.6, 0.15, 0.05]} />
-              <meshBasicMaterial color="#555555" />
+              <meshStandardMaterial color="#555555" />
             </mesh>
             <mesh position={[0, 0, 0.05]}>
               <cylinderGeometry args={[0.2, 0.2, 0.1, 32]} rotation={[Math.PI / 2, 0, 0]} />
-              <meshBasicMaterial color="#ff6b6b" />
+              <meshStandardMaterial color="#ff6b6b" />
             </mesh>
           </group>
       </group>
       
       <ambientLight ref={ambientLightRef} intensity={0} />
-      <directionalLight ref={dirLightRef} position={[10, 20, 10]} intensity={0} />
+      {/* Moved the directional light slightly so it hits the track better */}
+      <directionalLight ref={dirLightRef} position={[5, 10, 5]} intensity={0} castShadow />
     </>
   );
 };
