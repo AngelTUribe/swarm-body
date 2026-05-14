@@ -67,9 +67,6 @@ const Swarm = ({ handsPositionRef, count = 4000 }) => {
 
       // THE FIX: Gently coast and disperse instead of blasting into the camera (Z=10)
       if (!allHands[handIndex]) {
-        positions[i3] += offsets[i3] * 0.015;
-        positions[i3 + 1] += offsets[i3 + 1] * 0.015;
-        positions[i3 + 2] += offsets[i3 + 2] * 0.015; 
         continue;
       }
 

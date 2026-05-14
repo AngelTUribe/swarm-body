@@ -66,6 +66,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       let indexX = null; 
       let indexY = null; 
       let isLocked = activeHandMemory.current.locked;
+      let isBuffering = false;
 
       // 1. Process all visible hands
       const processedHands = hands.map(h => {
@@ -98,6 +99,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
         // 1. HAND TRACKING LOSS BUFFER
         if (!activeHand) {
+          isBuffering = true;
           activeHandMemory.current.lostFrames++;
           
           // DYNAMIC TOLERANCE: Wait up to 60 frames (1 full second) if holding a block!
@@ -197,15 +199,35 @@ const PortfolioUI = ({ handsPositionRef }) => {
               }
           } else {
               // LOCKED: Render only the active hand
-              if (cursor1Ref.current) {
-                  if (indexX !== null) {
-                      cursor1Ref.current.style.opacity = 1;
-                      cursor1Ref.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
-                      cursor1Ref.current.style.backgroundColor = (finalIsPinching || state.current.draggedId) ? '#00ffcc' : 'white';
-                  } else cursor1Ref.current.style.opacity = 0;
-              }
-              if (cursor2Ref.current) cursor2Ref.current.style.opacity = 0; // Hide the secondary hand
-          }
+            if (cursor1Ref.current) {
+                if (indexX !== null) {
+                    cursor1Ref.current.style.opacity = 1;
+                    
+                    if (isBuffering) {
+                        // Yellow Loading Spinner Mode
+                        cursor1Ref.current.style.backgroundColor = 'transparent';
+                        cursor1Ref.current.style.border = '4px solid #ffcc00';
+                        cursor1Ref.current.style.borderTopColor = 'transparent';
+                        cursor1Ref.current.style.boxShadow = '0 0 10px #ffcc00';
+                        cursor1Ref.current.classList.add('loading-spinner');
+                        
+                        // Use CSS vars so the keyframe animation handles the transform
+                        cursor1Ref.current.style.transform = ``; 
+                        cursor1Ref.current.style.setProperty('--cx', `${indexX}px`);
+                        cursor1Ref.current.style.setProperty('--cy', `${indexY}px`);
+                    } else {
+                        // Standard Cyan/White Dot Mode
+                        cursor1Ref.current.style.backgroundColor = (finalIsPinching || state.current.draggedId) ? '#00ffcc' : 'white';
+                        cursor1Ref.current.style.border = 'none';
+                        cursor1Ref.current.style.boxShadow = '0 0 15px #00ffcc';
+                        cursor1Ref.current.classList.remove('loading-spinner');
+                        
+                        cursor1Ref.current.style.transform = `translate(${indexX}px, ${indexY}px)`;
+                    }
+                } else cursor1Ref.current.style.opacity = 0;
+            }
+            if (cursor2Ref.current) cursor2Ref.current.style.opacity = 0; 
+        }
       }
 
       // === BOOT PHASE ===
@@ -389,6 +411,18 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 2000 }}>
+      {/* ADD THIS STYLE BLOCK */}
+      <style>
+        {`
+          .loading-spinner {
+            animation: spin-cursor 1s linear infinite !important;
+          }
+          @keyframes spin-cursor {
+            0% { transform: translate(var(--cx), var(--cy)) rotate(0deg); }
+            100% { transform: translate(var(--cx), var(--cy)) rotate(360deg); }
+          }
+        `}
+      </style>
       {/* BOOT SCREEN */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 0.5s', zIndex: 50 }}>
         <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '500px', padding: '20px', textAlign: 'center', backgroundColor: 'rgba(5, 10, 15, 0.8)', border: '1px solid #00ffcc', borderRadius: '12px' }}>
