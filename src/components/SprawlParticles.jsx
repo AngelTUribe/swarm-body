@@ -64,6 +64,10 @@ const SprawlParticles = ({ handsPositionRef, count = 2000 }) => {
       const normalizedX = (zipperState.x / screenW) * 2 - 1; // -1 to 1
       const viewportX = normalizedX * (viewport.width / 2);
 
+      // THE FIX: Shift the particles down to match the 75% height of the UI zipper.
+      // Since 0 is the center of the 3D viewport, 75% down the screen is -25% of the viewport height.
+      const viewportYOffset = -viewport.height * 0.25;
+
       // Emit 10 dots per frame (Dense light leak!)
       for (let s = 0; s < 10; s++) {
         let idx = activeIndex.current;
@@ -71,7 +75,8 @@ const SprawlParticles = ({ handsPositionRef, count = 2000 }) => {
         
         // Spawn scattered vertically along the tear, centered at the zipper X
         positionsArr[i3] = viewportX + (Math.random() - 0.5) * 0.5;
-        positionsArr[i3 + 1] = (Math.random() - 0.5) * (zipperState.progress * viewport.height * 0.6); 
+        // Apply the offset here!
+        positionsArr[i3 + 1] = viewportYOffset + (Math.random() - 0.5) * (zipperState.progress * viewport.height * 0.6); 
         positionsArr[i3 + 2] = 0; // Flat on the screen
         
         // Give them a slow, random outward drift

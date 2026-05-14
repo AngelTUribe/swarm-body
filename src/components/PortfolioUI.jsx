@@ -585,9 +585,10 @@ const PortfolioUI = ({ handsPositionRef }) => {
           {/* THE FIX: Changed textAlign to 'right' and added marginRight to push instructions off the track center */}
           {expandedProject.id === 'p3' && (
             <div style={{ color: 'rgb(255, 0, 255)', fontFamily: 'monospace', textAlign: 'right', marginTop: '30px', marginRight: '40px', textShadow: '0 0 10px #ff00ff' }}>
-              <h2 style={{ letterSpacing: '3px' }}>[ ONE-HANDED DRIVE SYSTEM ACTIVE ]</h2>
-              <p style={{ fontSize: '1.2rem' }}><b>GAS:</b> Open Palm &nbsp; | &nbsp; <b>BRAKE/REVERSE:</b> Closed Fist</p>
+              <h2 style={{ letterSpacing: '3px' }}>[ RIGHT-HANDED DRIVE SYSTEM ACTIVE ]</h2>
+              <p style={{ fontSize: '1.2rem' }}><b>GAS:</b> Open Palm</p>
               <p style={{ fontSize: '1.2rem' }}><b>STEER:</b> Move hand left/right</p>
+              <p style={{ fontSize: '1.2rem' }}><b>BRAKE/REVERSE:</b> Closed Fist</p>
             </div>
           )}
         </div>
