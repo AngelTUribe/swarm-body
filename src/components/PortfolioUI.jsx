@@ -484,19 +484,19 @@ const PortfolioUI = ({ handsPositionRef }) => {
           .data-balls {
             stroke-linecap: round;
             /* 0 length dash (creates a circle), 120px gap between balls */
-            stroke-dasharray: 0 120; 
-            animation: flow-data 1.5s linear infinite;
+            stroke-dasharray: 0 300; 
+            animation: flow-data 3s linear infinite;
           }
           .data-balls-fast {
             stroke-linecap: round;
-            stroke-dasharray: 0 80;
-            animation: flow-data 0.8s linear infinite;
+            stroke-dasharray: 0 200;
+            animation: flow-data 1.4s linear infinite;
           }
 
           @keyframes flow-data {
             /* Moving to a negative offset pushes the dashes FORWARD along the path */
             from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -300; }
+            to { stroke-dashoffset: -600; }
           }
         `}
       </style>
