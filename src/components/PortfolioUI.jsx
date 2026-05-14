@@ -293,7 +293,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const dropThreshold = 120; 
+        const dropThreshold = 180; 
 
         const overValidTarget = distToHole < dropThreshold || distToSlot < dropThreshold;
         if (!finalIsPinching && overValidTarget) state.current.draggedId = null;
@@ -360,7 +360,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
       {/* DYNAMIC EXECUTE LABEL */}
       {phase === 'main' && (
-        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 80, transform: 'translateX(-50%)', color: '#00ffcc', fontFamily: 'monospace', fontWeight: 'bold', transition: 'opacity 0.3s' }}>
+        <div id="execute-label" style={{ position: 'absolute', left: state.current.holeCurrX, top: state.current.holeCurrY + 80, transform: 'translateX(-50%)', color: '#00ffcc', font: "FiraMono-Regular.ttf", fontWeight: 'bold', transition: 'opacity 0.3s' }}>
           DRAG HERE TO INITIALIZE
         </div>
       )}
