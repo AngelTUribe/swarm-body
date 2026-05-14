@@ -82,8 +82,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   const outerGrassShape = useMemo(() => {
     const shape = new THREE.Shape();
-    // THE FIX: Reduced from +6 to +3. When combined with the new 0.35 scale below, 
-    // the absolute size on screen stays the exact same!
     const padR = outerRadius + 3; 
     shape.moveTo(-straightLength, padR);
     shape.lineTo(straightLength, padR);
@@ -176,7 +174,10 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   useFrame(() => {
     const uiState = handsPositionRef.current?.uiState;
-    const isActive = uiState && uiState.expandedId === 'p3';
+    
+    // THE FIX: Strict Boolean conversion guarantees this evaluates to `false` 
+    // even if uiState is undefined during the initial boot phase!
+    const isActive = Boolean(uiState && uiState.expandedId === 'p3');
 
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
     if (wheelGroupRef.current) wheelGroupRef.current.visible = isActive;
@@ -259,8 +260,8 @@ const SpatialDrive = ({ handsPositionRef }) => {
     speedRef.current *= 0.92; 
 
     if (steeringWheelRef.current) {
-        const targetRotation = -steerInputRef.current * Math.PI * 0.6;
-        steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * -0.15;
+        const targetRotation = steerInputRef.current * Math.PI * 0.6;
+        steeringWheelRef.current.rotation.z += (targetRotation - steeringWheelRef.current.rotation.z) * 0.15;
     }
     
     if (gasPedalRef.current) {
@@ -343,7 +344,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      {/* THE FIX: Increased scale from 0.28 to 0.35 */}
       <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.35} rotation={[Math.PI / 5, 0, 0]} visible={false}>
         
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
