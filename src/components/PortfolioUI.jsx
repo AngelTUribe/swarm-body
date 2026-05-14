@@ -289,12 +289,28 @@ const PortfolioUI = ({ handsPositionRef }) => {
         const activeHole = state.current.layout === 'split' ? state.current.holeSplit : state.current.holeCentral;
         const activeSlot = state.current.layout === 'split' ? pState.split : pState.central; 
 
-        pState.currX = indexX; pState.currY = indexY;
-
+        // 1. Calculate distances FIRST so we know if we should apply suction
         const distToHole = Math.hypot(indexX - activeHole.x, indexY - activeHole.y);
         const distToSlot = Math.hypot(indexX - activeSlot.x, indexY - activeSlot.y);
-        const dropThreshold = 180; 
+        const dropThreshold = 180; // Increased for a wider "catch" area
+        const suctionStrength = 0.35; // How hard it pulls to the center
 
+        // 2. MAGNETIC SUCTION LOGIC
+        if (distToHole < dropThreshold) {
+            // Pull towards hole while still holding
+            pState.currX += (activeHole.x - indexX) * suctionStrength;
+            pState.currY += (activeHole.y - indexY) * suctionStrength;
+        } else if (distToSlot < dropThreshold) {
+            // Pull towards slot while still holding
+            pState.currX += (activeSlot.x - indexX) * suctionStrength;
+            pState.currY += (activeSlot.y - indexY) * suctionStrength;
+        } else {
+            // Standard 1:1 tracking
+            pState.currX = indexX; 
+            pState.currY = indexY;
+        }
+
+        // 3. THE DROP (Releasing the pinch inside the threshold)
         const overValidTarget = distToHole < dropThreshold || distToSlot < dropThreshold;
         if (!finalIsPinching && overValidTarget) state.current.draggedId = null;
 
@@ -303,6 +319,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
           if (state.current.layout === 'split' && distToHole > 150) state.current.hasLeftOrigin = true;
         }
 
+        // 4. THE EXECUTION (Applying the snap state once dropped)
         if (state.current.hasLeftOrigin && state.current.draggedId === null) {
           if (state.current.layout === 'central') {
             if (distToHole < dropThreshold) {
