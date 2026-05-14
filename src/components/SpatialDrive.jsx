@@ -83,10 +83,10 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
-  // NEW: Fitted Outer Grass Shape
+  // Fitted Outer Grass Shape
   const outerGrassShape = useMemo(() => {
     const shape = new THREE.Shape();
-    const padR = outerRadius + 6; // Hugs the track nicely
+    const padR = outerRadius + 6; 
     shape.moveTo(-straightLength, padR);
     shape.lineTo(straightLength, padR);
     shape.absarc(straightLength, 0, padR, Math.PI/2, -Math.PI/2, true);
@@ -131,7 +131,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
     return shape;
   }, [straightLength, innerRadius]);
 
-  // NEW: Procedural Arrows for Track Direction
+  // Procedural Arrows for Track Direction
   const trackArrows = useMemo(() => {
     const arr = [];
     const midR = (innerRadius + outerRadius) / 2; 
@@ -360,7 +360,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
     <>
       <group ref={gameGroupRef} position={[0.5, -1.0, -6]} scale={0.28} rotation={[Math.PI / 5, 0, 0]} visible={false}>
         
-        {/* NEW FITTED OUTER GRASS */}
+        {/* FITTED OUTER GRASS */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
             <shapeGeometry args={[outerGrassShape]} />
             <meshStandardMaterial color="#7ec850" roughness={1} />
@@ -378,12 +378,18 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
         
-        {/* NEW: Directional Arrows */}
+        {/* NEW: Detailed Directional Arrows (Head + Shaft) */}
         <group>
             {trackArrows.map((arr, i) => (
                 <group key={`arrow-${i}`} position={arr.pos} rotation={[0, arr.angle, 0]}>
-                    <mesh rotation={[Math.PI/2, 0, 0]}>
-                        <coneGeometry args={[0.5, 1.2, 3]} />
+                    {/* Arrowhead */}
+                    <mesh rotation={[Math.PI/2, 0, 0]} position={[0, 0, 0.4]}>
+                        <coneGeometry args={[0.5, 0.8, 3]} />
+                        <meshStandardMaterial color="#00ffcc" />
+                    </mesh>
+                    {/* Arrow Shaft/Tail */}
+                    <mesh position={[0, 0, -0.2]}>
+                        <boxGeometry args={[0.3, 0.1, 0.8]} />
                         <meshStandardMaterial color="#00ffcc" />
                     </mesh>
                 </group>
@@ -406,11 +412,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <meshStandardMaterial map={checkerTexture} />
         </mesh>
 
-        {/* 3D LAP TEXT HUD */}
+        {/* 3D LAP TEXT HUD - MOVED HIGHER */}
         <Text
-            position={[0, 6, -5]}
+            position={[0, 9, -7]}
             rotation={[-Math.PI / 5, 0, 0]} 
-            fontSize={3}
+            fontSize={3.5}
             color="#00ffcc"
             font="FiraMono-Regular.ttf"
             anchorX="center"
@@ -469,7 +475,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
             </mesh>
           </group>
 
-          {/* NEW: Animated Pedals System */}
+          {/* Animated Pedals System */}
           <group position={[1.5, -0.5, 0]}>
             {/* Left Gas Pedal */}
             <group position={[-0.3, 0, 0]}>
