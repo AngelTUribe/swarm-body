@@ -111,7 +111,7 @@ const SpatialObjects = ({ handsPositionRef }) => {
           {/* Inner Wireframe Core */}
           <mesh>
             <boxGeometry args={[0.8, 0.8, 0.8]} />
-            <meshBasicMaterial color="#ffffff" wireframe />
+            <meshBasicMaterial color="#B3EBF2" wireframe />
           </mesh>
 
           {/* FRONT FACE TEXT */}
