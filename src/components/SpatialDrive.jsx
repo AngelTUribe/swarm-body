@@ -8,7 +8,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
   const carRef = useRef();
   const steeringWheelRef = useRef();
   
-  // Light refs to fix the boot screen flash
   const ambientLightRef = useRef();
   const dirLightRef = useRef();
   
@@ -37,7 +36,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
     texture.magFilter = THREE.NearestFilter;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1.5, 4); // Stretch to fit the track width nicely
+    texture.repeat.set(1.5, 4); 
     return texture;
   }, []);
 
@@ -98,7 +97,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
     const uiState = handsPositionRef.current?.uiState;
     const isActive = uiState && uiState.expandedId === 'p3';
 
-    // Toggle visibility AND light intensity so the glass cubes don't flash on boot
     if (gameGroupRef.current) gameGroupRef.current.visible = isActive;
     if (wheelGroupRef.current) wheelGroupRef.current.visible = isActive;
     if (ambientLightRef.current) ambientLightRef.current.intensity = isActive ? 0.6 : 0;
@@ -156,7 +154,7 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
       const ix = (1 - activeHand[8].x) * screenW;
       
-      // Right-Hemisphere Steering: The neutral point is 75% across the screen
+      // Steering locked to right hemisphere
       const steeringCenter = screenW * 0.75;
       const rawSteer = (steeringCenter - ix) / (screenW * 0.20);
       steerInput = Math.max(-1, Math.min(1, rawSteer)); 
@@ -182,7 +180,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
       const nextX = carRef.current.position.x + Math.sin(angleRef.current) * speedRef.current;
       const nextZ = carRef.current.position.z + Math.cos(angleRef.current) * speedRef.current;
 
-      // NASCAR Oval Collision Math
       const clampedX = Math.max(-straightLength, Math.min(straightLength, nextX));
       const distFromCenter = Math.hypot(nextX - clampedX, nextZ);
 
@@ -205,7 +202,11 @@ const SpatialDrive = ({ handsPositionRef }) => {
 
   return (
     <>
-      <group ref={gameGroupRef} position={[0, -2, -12]} rotation={[-Math.PI / 4.5, 0, 0]} visible={false}>
+      {/* THE FIX: 
+        1. Reduced scale to 0.3 so it fits beautifully on screen like a toy track.
+        2. Shifted position slightly right (+1 on X axis) and set a nice top-down tilt.
+      */}
+      <group ref={gameGroupRef} position={[1, -0.5, -6]} scale={0.3} rotation={[-Math.PI / 3, 0, 0]} visible={false}>
         
         {/* Outer Environment / Grass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
@@ -225,7 +226,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
             <meshStandardMaterial color="#333333" />
         </mesh>
 
-        {/* Walls (Visuals matching the math) */}
         {/* Outer Wall */}
         <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]}>
            <capsuleGeometry args={[outerRadius + 0.2, straightLength * 2, 8, 32]} />
@@ -244,21 +244,15 @@ const SpatialDrive = ({ handsPositionRef }) => {
         </mesh>
 
         {/* CUTE CAR MODEL */}
-        {/* Spawn point centered on the track oval */}
         <group ref={carRef} position={[0, 0.3, (innerRadius + outerRadius) / 2]} rotation={[0, Math.PI / 2, 0]}>
-            {/* Main Body */}
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[0.8, 0.4, 1.4]} />
                 <meshStandardMaterial color="#ff6b6b" />
             </mesh>
-            
-            {/* Cabin / Windshield */}
             <mesh position={[0, 0.3, -0.1]}>
                 <boxGeometry args={[0.6, 0.3, 0.7]} />
                 <meshStandardMaterial color="#4ecdc4" transparent opacity={0.8} />
             </mesh>
-
-            {/* Headlights (+Z is forward) */}
             <mesh position={[0.25, 0, 0.71]}>
                 <circleGeometry args={[0.1, 16]} />
                 <meshBasicMaterial color="#ffe66d" />
@@ -267,30 +261,18 @@ const SpatialDrive = ({ handsPositionRef }) => {
                 <circleGeometry args={[0.1, 16]} />
                 <meshBasicMaterial color="#ffe66d" />
             </mesh>
-
             {/* Tires */}
-            <mesh position={[0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-                <meshBasicMaterial color="#111111" />
-            </mesh>
-            <mesh position={[-0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-                <meshBasicMaterial color="#111111" />
-            </mesh>
-            <mesh position={[0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-                <meshBasicMaterial color="#111111" />
-            </mesh>
-            <mesh position={[-0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-                <meshBasicMaterial color="#111111" />
-            </mesh>
+            <mesh position={[0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
+            <mesh position={[-0.45, -0.1, 0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
+            <mesh position={[0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
+            <mesh position={[-0.45, -0.1, -0.4]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.15, 0.15, 0.1, 16]} /><meshBasicMaterial color="#111111" /></mesh>
         </group>
       </group>
 
-      {/* 2D HUD OVERLAY (Steering Wheel) */}
-      {/* Placed at a fixed camera coordinate so it never disappears off screen */}
-      <group ref={wheelGroupRef} position={[-2.5, -1.5, 2]} visible={false}>
+      {/* THE FIX:
+        Moved the wheel to the positive X axis (right side of the screen)
+      */}
+      <group ref={wheelGroupRef} position={[2.5, -1.2, 2]} visible={false}>
           <group ref={steeringWheelRef}>
             <mesh>
               <torusGeometry args={[0.8, 0.1, 16, 48]} />
@@ -307,7 +289,6 @@ const SpatialDrive = ({ handsPositionRef }) => {
           </group>
       </group>
       
-      {/* Dynamic Lights */}
       <ambientLight ref={ambientLightRef} intensity={0} />
       <directionalLight ref={dirLightRef} position={[10, 20, 10]} intensity={0} />
     </>
