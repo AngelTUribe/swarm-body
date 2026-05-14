@@ -283,28 +283,45 @@ const PortfolioUI = ({ handsPositionRef }) => {
         execLabel.style.opacity = state.current.layout === 'split' ? '0' : '1';
       }
 
+      // >>> SPIDERWEB & DATA BALL TETHER LOGIC <<<
       const tether1 = document.getElementById('tether-path-1');
       if (tether1 && state.current.layout === 'split') {
          const hx = state.current.holeCurrX;
          const hy = state.current.holeCurrY;
-         
-         // Left edge of the expanded window (35vw from the left)
          const winLeft = screenW * 0.35; 
          
-         // Points along the left edge of the window
-         const p1 = screenH * 0.25;
-         const p2 = screenH * 0.40;
-         const p3 = screenH * 0.60;
-         const p4 = screenH * 0.75;
+         // Spread 5 connection points along the left edge of the window
+         const p1 = screenH * 0.20;
+         const p2 = screenH * 0.35;
+         const p3 = screenH * 0.50;
+         const p4 = screenH * 0.65;
+         const p5 = screenH * 0.80;
 
-         // Control point for Bezier Curve to give it that "sagging cable" or "web" look
-         const cpX = hx + (winLeft - hx) * 0.4;
+         // Control point X: placed halfway between cube and window
+         const cpX = hx + (winLeft - hx) * 0.5;
 
-         document.getElementById('tether-path-1').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p1}, ${winLeft} ${p1}`);
-         document.getElementById('tether-path-2').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p2}, ${winLeft} ${p2}`);
-         document.getElementById('tether-path-3').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p3}, ${winLeft} ${p3}`);
-         document.getElementById('tether-path-4').setAttribute('d', `M ${hx} ${hy} C ${cpX} ${hy}, ${cpX} ${p4}, ${winLeft} ${p4}`);
+         // Helper function to draw the curves and push the flare outward
+         const setPath = (id, destY, flareY) => {
+           const pathEl = document.getElementById(id);
+           const ballEl = document.getElementById(`${id}-balls`);
+           if (pathEl) {
+             // Flare the control point Y out so the web expands instead of just sagging
+             const cy = hy + (destY - hy) * flareY;
+             // Quadratic Bezier curve for a smooth projected arc
+             const d = `M ${hx} ${hy} Q ${cpX} ${cy} ${winLeft} ${destY}`;
+             pathEl.setAttribute('d', d);
+             if (ballEl) ballEl.setAttribute('d', d);
+           }
+         };
+
+         // The third parameter flares the curve out. Negative is up, Positive is down.
+         setPath('tether-path-1', p1, -0.4);
+         setPath('tether-path-2', p2, -0.2);
+         setPath('tether-path-3', p3, 0);    // Straight to the middle
+         setPath('tether-path-4', p4, 0.2);
+         setPath('tether-path-5', p5, 0.4);
       }
+      // >>> END TETHER LOGIC <<<
 
       PROJECTS.forEach(p => {
         const pState = state.current.projects[p.id];
@@ -456,6 +473,31 @@ const PortfolioUI = ({ handsPositionRef }) => {
             0%, 100% { opacity: 1; text-shadow: 0 0 15px #00ffcc; }
             50% { opacity: 0.4; text-shadow: none; }
           }
+          .data-tether-base {
+            animation: web-breathe 4s ease-in-out infinite alternate;
+          }
+          @keyframes web-breathe {
+            0% { stroke-opacity: 0.2; stroke-width: 1px; }
+            100% { stroke-opacity: 0.8; stroke-width: 2.5px; }
+          }
+
+          .data-balls {
+            stroke-linecap: round;
+            /* 0 length dash (creates a circle), 120px gap between balls */
+            stroke-dasharray: 0 120; 
+            animation: flow-data 1.5s linear infinite;
+          }
+          .data-balls-fast {
+            stroke-linecap: round;
+            stroke-dasharray: 0 80;
+            animation: flow-data 0.8s linear infinite;
+          }
+
+          @keyframes flow-data {
+            /* Moving to a negative offset pushes the dashes FORWARD along the path */
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -300; }
+          }
         `}
       </style>
       {/* BOOT SCREEN */}
@@ -537,11 +579,34 @@ const PortfolioUI = ({ handsPositionRef }) => {
 
 {/* DATA TETHER (Spiderweb) */}
       {expandedProject && (
-        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 250, filter: 'drop-shadow(0 0 8px #00ffcc)' }}>
-          <path id="tether-path-1" className="data-tether" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="2" fill="none" strokeDasharray="4 6" />
-          <path id="tether-path-2" className="data-tether-fast" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="1" fill="none" />
-          <path id="tether-path-3" className="data-tether" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="1.5" fill="none" />
-          <path id="tether-path-4" className="data-tether-fast" stroke={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} strokeWidth="3" fill="none" strokeDasharray="10 15" />
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: 250, filter: 'drop-shadow(0 0 10px #00ffcc)' }}>
+          <defs>
+            {/* Creates a fade effect from the cube to the window */}
+            <linearGradient id="web-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} stopOpacity="1" />
+              <stop offset="100%" stopColor={expandedProject.id === 'p3' ? '#ff00ff' : '#00ffcc'} stopOpacity="0.1" />
+            </linearGradient>
+          </defs>
+
+          {[1, 2, 3, 4, 5].map(i => (
+            <g key={i}>
+              {/* The semi-transparent glowing web line */}
+              <path 
+                id={`tether-path-${i}`} 
+                className="data-tether-base" 
+                stroke="url(#web-gradient)" 
+                fill="none" 
+              />
+              {/* The bright white data balls traveling along the exact same path */}
+              <path 
+                id={`tether-path-${i}-balls`} 
+                className={i % 2 === 0 ? "data-balls-fast" : "data-balls"} 
+                stroke="#ffffff" 
+                strokeWidth={i % 2 === 0 ? "6" : "4"} 
+                fill="none" 
+              />
+            </g>
+          ))}
         </svg>
       )}
 
