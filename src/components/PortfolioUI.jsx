@@ -279,7 +279,7 @@ const PortfolioUI = ({ handsPositionRef }) => {
       const execLabel = document.getElementById('execute-label');
       if (execLabel) {
         execLabel.style.left = `${state.current.holeCurrX}px`;
-        execLabel.style.top = `${state.current.holeCurrY + 70}px`;
+        execLabel.style.top = `${state.current.holeCurrY + 120}px`;
         execLabel.style.opacity = state.current.layout === 'split' ? '0' : '1';
       }
 
